@@ -4,6 +4,7 @@ const hex = std.fmt.fmtSliceHexLower;
 const c = @import("c.zig");
 
 const Environment = @This();
+const Stat = @import("stat.zig");
 
 pub const Options = struct {
     map_size: usize = 10485760,
@@ -71,14 +72,20 @@ pub fn flush(self: Environment) !void {
     };
 }
 
-pub const Stat = struct { entries: usize };
-
 pub fn stat(self: Environment) !Stat {
     var result: c.MDB_stat = undefined;
     try switch (c.mdb_env_stat(self.ptr, &result)) {
         0 => {},
-        else => error.LmdbEnvironmentError,
+        @intFromEnum(std.os.E.INVAL) => error.INVAL,
+        else => error.LmdbDatabaseStatError,
     };
 
-    return .{ .entries = result.ms_entries };
+    return .{
+        .psize = result.ms_psize,
+        .depth = result.ms_psize,
+        .branch_pages = result.ms_branch_pages,
+        .leaf_pages = result.ms_leaf_pages,
+        .overflow_pages = result.ms_overflow_pages,
+        .entries = result.ms_entries,
+    };
 }

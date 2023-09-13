@@ -5,14 +5,15 @@ const hex = std.fmt.fmtSliceHexLower;
 const c = @import("c.zig");
 
 const Transaction = @import("transaction.zig");
+const Database = @import("database.zig");
 const Cursor = @This();
 
 ptr: ?*c.MDB_cursor,
 
-pub fn open(txn: Transaction) !Cursor {
+pub fn open(db: Database) !Cursor {
     var cursor = Cursor{ .ptr = null };
 
-    try switch (c.mdb_cursor_open(txn.ptr, txn.dbi, &cursor.ptr)) {
+    try switch (c.mdb_cursor_open(db.txn.ptr, db.dbi, &cursor.ptr)) {
         0 => {},
         @intFromEnum(std.os.E.INVAL) => error.INVAL,
         else => error.LmdbCursorOpenError,

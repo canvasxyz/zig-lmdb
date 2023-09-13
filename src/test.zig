@@ -5,12 +5,51 @@ const expectEqualSlices = std.testing.expectEqualSlices;
 
 const Environment = @import("environment.zig");
 const Transaction = @import("transaction.zig");
+const Database = @import("database.zig");
 const Cursor = @import("cursor.zig");
 
-const compareEntries = @import("compare.zig").compareEntries;
+const compare = @import("compare.zig");
 const utils = @import("utils.zig");
 
 const allocator = std.heap.c_allocator;
+
+test "basic operations" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    const path = try utils.resolvePath(tmp.dir, ".");
+    const env = try Environment.open(path, .{});
+    defer env.close();
+
+    {
+        const txn = try Transaction.open(env, .{ .read_only = false });
+        errdefer txn.abort();
+        const db = try Database.open(txn, .{});
+        try db.set("x", "foo");
+        try db.set("y", "bar");
+        try db.set("z", "baz");
+        try txn.commit();
+    }
+
+    {
+        const txn = try Transaction.open(env, .{ .read_only = false });
+        errdefer txn.abort();
+        const db = try Database.open(txn, .{});
+        try db.delete("y");
+        try db.set("x", "FOO");
+        try txn.commit();
+    }
+
+    {
+        const txn = try Transaction.open(env, .{ .read_only = true });
+        defer txn.abort();
+        const db = try Database.open(txn, .{});
+        try utils.expectEqualEntries(db, &.{
+            .{ "x", "FOO" },
+            .{ "z", "baz" },
+        });
+    }
+}
 
 test "multiple named databases" {
     var tmp = std.testing.tmpDir(.{});
@@ -21,29 +60,33 @@ test "multiple named databases" {
     defer env.close();
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false, .dbi = "a" });
+        const txn = try Transaction.open(env, .{ .read_only = false });
         errdefer txn.abort();
-        try txn.set("x", "foo");
+        const db = try Database.open(txn, .{ .name = "a", .create = true });
+        try db.set("x", "foo");
         try txn.commit();
     }
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false, .dbi = "b" });
+        const txn = try Transaction.open(env, .{ .read_only = false });
         errdefer txn.abort();
-        try txn.set("x", "bar");
+        const db = try Database.open(txn, .{ .name = "b", .create = true });
+        try db.set("x", "bar");
         try txn.commit();
     }
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = true, .dbi = "a" });
+        const txn = try Transaction.open(env, .{ .read_only = true });
         defer txn.abort();
-        try utils.expectEqualKeys(try txn.get("x"), "foo");
+        const db = try Database.open(txn, .{ .name = "a" });
+        try utils.expectEqualKeys(try db.get("x"), "foo");
     }
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = true, .dbi = "b" });
+        const txn = try Transaction.open(env, .{ .read_only = true });
         defer txn.abort();
-        try utils.expectEqualKeys(try txn.get("x"), "bar");
+        const db = try Database.open(txn, .{ .name = "b" });
+        try utils.expectEqualKeys(try db.get("x"), "bar");
     }
 }
 
@@ -59,12 +102,13 @@ test "compareEntries" {
     defer env_a.close();
 
     {
-        const txn_a = try Transaction.open(env_a, .{ .read_only = false });
-        errdefer txn_a.abort();
-        try txn_a.set("x", "foo");
-        try txn_a.set("y", "bar");
-        try txn_a.set("z", "baz");
-        try txn_a.commit();
+        const txn = try Transaction.open(env_a, .{ .read_only = false });
+        errdefer txn.abort();
+        const db = try Database.open(txn, .{ .create = true });
+        try db.set("x", "foo");
+        try db.set("y", "bar");
+        try db.set("z", "baz");
+        try txn.commit();
     }
 
     const path_b = try utils.resolvePath(tmp.dir, "b");
@@ -72,26 +116,28 @@ test "compareEntries" {
     defer env_b.close();
 
     {
-        const txn_b = try Transaction.open(env_b, .{ .read_only = false });
-        errdefer txn_b.abort();
-        try txn_b.set("y", "bar");
-        try txn_b.set("z", "qux");
-        try txn_b.commit();
+        const txn = try Transaction.open(env_b, .{ .read_only = false });
+        const db = try Database.open(txn, .{ .create = true });
+        errdefer txn.abort();
+        try db.set("y", "bar");
+        try db.set("z", "qux");
+        try txn.commit();
     }
 
-    try expectEqual(try compareEntries(env_a, env_b, .{}), 2);
-    try expectEqual(try compareEntries(env_b, env_a, .{}), 2);
+    try expectEqual(try compare.compareEnvironments(env_a, env_b, .{}), 2);
+    try expectEqual(try compare.compareEnvironments(env_b, env_a, .{}), 2);
 
     {
-        const txn_c = try Transaction.open(env_b, .{ .read_only = false });
-        errdefer txn_c.abort();
-        try txn_c.set("x", "foo");
-        try txn_c.set("z", "baz");
-        try txn_c.commit();
+        const txn = try Transaction.open(env_b, .{ .read_only = false });
+        const db = try Database.open(txn, .{});
+        errdefer txn.abort();
+        try db.set("x", "foo");
+        try db.set("z", "baz");
+        try txn.commit();
     }
 
-    try expectEqual(try compareEntries(env_a, env_b, .{}), 0);
-    try expectEqual(try compareEntries(env_b, env_a, .{}), 0);
+    try expectEqual(try compare.compareEnvironments(env_a, env_b, .{}), 0);
+    try expectEqual(try compare.compareEnvironments(env_b, env_a, .{}), 0);
 }
 
 test "set empty value" {
@@ -106,8 +152,10 @@ test "set empty value" {
     const txn = try Transaction.open(env, .{ .read_only = false });
     defer txn.abort();
 
-    try txn.set("a", "");
-    if (try txn.get("a")) |value| {
+    const db = try Database.open(txn, .{});
+
+    try db.set("a", "");
+    if (try db.get("a")) |value| {
         try expect(value.len == 0);
     } else {
         return error.KeyNotFound;
@@ -127,24 +175,32 @@ test "stat" {
         const txn = try Transaction.open(env, .{ .read_only = false });
         errdefer txn.abort();
 
-        try txn.set("a", "foo");
-        try txn.set("b", "bar");
-        try txn.set("c", "baz");
-        try txn.set("a", "aaa");
+        const db = try Database.open(txn, .{ .create = true });
+        try db.set("a", "foo");
+        try db.set("b", "bar");
+        try db.set("c", "baz");
+        try db.set("a", "aaa");
 
         try txn.commit();
     }
 
-    try expectEqual(Environment.Stat{ .entries = 3 }, try env.stat());
+    {
+        const stat = try env.stat();
+        try expectEqual(@as(usize, 3), stat.entries);
+    }
 
     {
         const txn = try Transaction.open(env, .{ .read_only = false });
         errdefer txn.abort();
-        try txn.delete("c");
+        const db = try Database.open(txn, .{});
+        try db.delete("c");
         try txn.commit();
     }
 
-    try expectEqual(Environment.Stat{ .entries = 2 }, try env.stat());
+    {
+        const stat = try env.stat();
+        try expectEqual(@as(usize, 2), stat.entries);
+    }
 }
 
 test "Cursor.deleteCurrentKey()" {
@@ -157,28 +213,27 @@ test "Cursor.deleteCurrentKey()" {
 
     {
         const txn = try Transaction.open(env, .{ .read_only = false });
-        errdefer txn.abort();
+        defer txn.abort();
 
-        try txn.set("a", "foo");
-        try txn.set("b", "bar");
-        try txn.set("c", "baz");
-        try txn.set("d", "qux");
+        const db = try Database.open(txn, .{ .create = true });
+        try db.set("a", "foo");
+        try db.set("b", "bar");
+        try db.set("c", "baz");
+        try db.set("d", "qux");
 
-        const cursor = try Cursor.open(txn);
+        const cursor = try Cursor.open(db);
         try cursor.goToKey("c");
         try expectEqualSlices(u8, try cursor.getCurrentValue(), "baz");
         try cursor.deleteCurrentKey();
         try expectEqualSlices(u8, try cursor.getCurrentKey(), "d");
         try utils.expectEqualKeys(try cursor.goToPrevious(), "b");
 
-        try txn.commit();
+        try utils.expectEqualEntries(db, &.{
+            .{ "a", "foo" },
+            .{ "b", "bar" },
+            .{ "d", "qux" },
+        });
     }
-
-    try utils.expectEqualEntries(env, &.{
-        .{ "a", "foo" },
-        .{ "b", "bar" },
-        .{ "d", "qux" },
-    });
 }
 
 test "seek" {
@@ -191,26 +246,25 @@ test "seek" {
 
     {
         const txn = try Transaction.open(env, .{ .read_only = false });
-        errdefer txn.abort();
+        defer txn.abort();
 
-        try txn.set("a", "foo");
-        try txn.set("aa", "bar");
-        try txn.set("ab", "baz");
-        try txn.set("abb", "qux");
+        const db = try Database.open(txn, .{ .create = true });
+        try db.set("a", "foo");
+        try db.set("aa", "bar");
+        try db.set("ab", "baz");
+        try db.set("abb", "qux");
 
-        const cursor = try Cursor.open(txn);
+        const cursor = try Cursor.open(db);
         try utils.expectEqualKeys(try cursor.seek("aba"), "abb");
         try expectEqual(try cursor.seek("b"), null);
 
-        try txn.commit();
+        try utils.expectEqualEntries(db, &.{
+            .{ "a", "foo" },
+            .{ "aa", "bar" },
+            .{ "ab", "baz" },
+            .{ "abb", "qux" },
+        });
     }
-
-    try utils.expectEqualEntries(env, &.{
-        .{ "a", "foo" },
-        .{ "aa", "bar" },
-        .{ "ab", "baz" },
-        .{ "abb", "qux" },
-    });
 }
 
 test "parent transactions" {
@@ -221,26 +275,30 @@ test "parent transactions" {
     const env = try Environment.open(path, .{});
     defer env.close();
 
-    const parentTxn = try Transaction.open(env, .{ .read_only = false });
-    defer parentTxn.abort();
+    const parent = try Transaction.open(env, .{ .read_only = false });
+    defer parent.abort();
 
-    try parentTxn.set("a", "foo");
-    try parentTxn.set("b", "bar");
-    try parentTxn.set("c", "baz");
-
-    {
-        const childTxn = try Transaction.open(env, .{ .read_only = false, .parent = parentTxn });
-        try childTxn.delete("c");
-        try childTxn.commit();
-    }
-
-    try expectEqual(@as(?[]const u8, null), try parentTxn.get("c"));
+    const parent_db = try Database.open(parent, .{ .create = true });
+    try parent_db.set("a", "foo");
+    try parent_db.set("b", "bar");
+    try parent_db.set("c", "baz");
 
     {
-        const childTxn = try Transaction.open(env, .{ .read_only = false, .parent = parentTxn });
-        try childTxn.set("c", "baz");
-        childTxn.abort();
+        const child = try Transaction.open(env, .{ .read_only = false, .parent = parent });
+        errdefer child.abort();
+        const child_db = try Database.open(child, .{});
+        try child_db.delete("c");
+        try child.commit();
     }
 
-    try expectEqual(@as(?[]const u8, null), try parentTxn.get("c"));
+    try expectEqual(@as(?[]const u8, null), try parent_db.get("c"));
+
+    {
+        const child = try Transaction.open(env, .{ .read_only = false, .parent = parent });
+        defer child.abort();
+        const child_db = try Database.open(child, .{});
+        try child_db.set("c", "baz");
+    }
+
+    try expectEqual(@as(?[]const u8, null), try parent_db.get("c"));
 }

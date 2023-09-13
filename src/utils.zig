@@ -5,14 +5,20 @@ const expectEqualSlices = std.testing.expectEqualSlices;
 
 const Environment = @import("environment.zig");
 const Transaction = @import("transaction.zig");
+const Database = @import("database.zig");
 const Cursor = @import("cursor.zig");
 
-var path_buffer: [4096]u8 = undefined;
+var buffer: [4096]u8 = undefined;
 
 pub fn resolvePath(dir: std.fs.Dir, name: []const u8) ![*:0]const u8 {
-    const path = try dir.realpath(name, &path_buffer);
-    path_buffer[path.len] = 0;
-    return @as([*:0]const u8, @ptrCast(path_buffer[0..path.len]));
+    const path = try dir.realpath(name, &buffer);
+    buffer[path.len] = 0;
+    return @as([*:0]const u8, @ptrCast(buffer[0..path.len]));
+}
+
+pub fn getCString(value: []const u8) [*:0]const u8 {
+    @memcpy(buffer[0..value.len], value);
+    return @as([*:0]const u8, @ptrCast(&buffer));
 }
 
 pub fn expectEqualKeys(actual: ?[]const u8, expected: ?[]const u8) !void {
@@ -27,11 +33,8 @@ pub fn expectEqualKeys(actual: ?[]const u8, expected: ?[]const u8) !void {
     }
 }
 
-pub fn expectEqualEntries(env: Environment, entries: []const [2][]const u8) !void {
-    const txn = try Transaction.open(env, .{ .read_only = true });
-    defer txn.abort();
-
-    const cursor = try Cursor.open(txn);
+pub fn expectEqualEntries(db: Database, entries: []const [2][]const u8) !void {
+    const cursor = try Cursor.open(db);
     defer cursor.close();
 
     var i: usize = 0;
@@ -59,17 +62,26 @@ test "expectEqualEntries" {
         const txn = try Transaction.open(env, .{ .read_only = false });
         errdefer txn.abort();
 
-        try txn.set("a", "foo");
-        try txn.set("b", "bar");
-        try txn.set("c", "baz");
-        try txn.set("d", "qux");
+        const db = try Database.open(txn, .{});
+
+        try db.set("a", "foo");
+        try db.set("b", "bar");
+        try db.set("c", "baz");
+        try db.set("d", "qux");
         try txn.commit();
     }
 
-    try expectEqualEntries(env, &[_][2][]const u8{
-        .{ "a", "foo" },
-        .{ "b", "bar" },
-        .{ "c", "baz" },
-        .{ "d", "qux" },
-    });
+    {
+        const txn = try Transaction.open(env, .{ .read_only = true });
+        defer txn.abort();
+
+        const db = try Database.open(txn, .{});
+
+        try expectEqualEntries(db, &[_][2][]const u8{
+            .{ "a", "foo" },
+            .{ "b", "bar" },
+            .{ "c", "baz" },
+            .{ "d", "qux" },
+        });
+    }
 }
