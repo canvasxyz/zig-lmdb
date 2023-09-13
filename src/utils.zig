@@ -59,7 +59,7 @@ test "expectEqualEntries" {
     defer env.close();
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false });
+        const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
 
         const db = try Database.open(txn, .{});
@@ -72,7 +72,7 @@ test "expectEqualEntries" {
     }
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = true });
+        const txn = try Transaction.open(env, .{ .mode = .ReadOnly });
         defer txn.abort();
 
         const db = try Database.open(txn, .{});

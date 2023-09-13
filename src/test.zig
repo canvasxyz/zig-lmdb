@@ -22,7 +22,7 @@ test "basic operations" {
     defer env.close();
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false });
+        const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
         const db = try Database.open(txn, .{});
         try db.set("x", "foo");
@@ -32,7 +32,7 @@ test "basic operations" {
     }
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false });
+        const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
         const db = try Database.open(txn, .{});
         try db.delete("y");
@@ -41,7 +41,7 @@ test "basic operations" {
     }
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = true });
+        const txn = try Transaction.open(env, .{ .mode = .ReadOnly });
         defer txn.abort();
         const db = try Database.open(txn, .{});
         try utils.expectEqualEntries(db, &.{
@@ -60,7 +60,7 @@ test "multiple named databases" {
     defer env.close();
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false });
+        const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
         const db = try Database.open(txn, .{ .name = "a", .create = true });
         try db.set("x", "foo");
@@ -68,7 +68,7 @@ test "multiple named databases" {
     }
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false });
+        const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
         const db = try Database.open(txn, .{ .name = "b", .create = true });
         try db.set("x", "bar");
@@ -76,14 +76,14 @@ test "multiple named databases" {
     }
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = true });
+        const txn = try Transaction.open(env, .{ .mode = .ReadOnly });
         defer txn.abort();
         const db = try Database.open(txn, .{ .name = "a" });
         try utils.expectEqualKeys(try db.get("x"), "foo");
     }
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = true });
+        const txn = try Transaction.open(env, .{ .mode = .ReadOnly });
         defer txn.abort();
         const db = try Database.open(txn, .{ .name = "b" });
         try utils.expectEqualKeys(try db.get("x"), "bar");
@@ -102,7 +102,7 @@ test "compareEntries" {
     defer env_a.close();
 
     {
-        const txn = try Transaction.open(env_a, .{ .read_only = false });
+        const txn = try Transaction.open(env_a, .{ .mode = .ReadWrite });
         errdefer txn.abort();
         const db = try Database.open(txn, .{ .create = true });
         try db.set("x", "foo");
@@ -116,7 +116,7 @@ test "compareEntries" {
     defer env_b.close();
 
     {
-        const txn = try Transaction.open(env_b, .{ .read_only = false });
+        const txn = try Transaction.open(env_b, .{ .mode = .ReadWrite });
         const db = try Database.open(txn, .{ .create = true });
         errdefer txn.abort();
         try db.set("y", "bar");
@@ -128,7 +128,7 @@ test "compareEntries" {
     try expectEqual(try compare.compareEnvironments(env_b, env_a, .{}), 2);
 
     {
-        const txn = try Transaction.open(env_b, .{ .read_only = false });
+        const txn = try Transaction.open(env_b, .{ .mode = .ReadWrite });
         const db = try Database.open(txn, .{});
         errdefer txn.abort();
         try db.set("x", "foo");
@@ -149,7 +149,7 @@ test "set empty value" {
     const env = try Environment.open(path, .{});
     defer env.close();
 
-    const txn = try Transaction.open(env, .{ .read_only = false });
+    const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
     defer txn.abort();
 
     const db = try Database.open(txn, .{});
@@ -172,7 +172,7 @@ test "stat" {
     defer env.close();
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false });
+        const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
 
         const db = try Database.open(txn, .{ .create = true });
@@ -190,7 +190,7 @@ test "stat" {
     }
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false });
+        const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
         const db = try Database.open(txn, .{});
         try db.delete("c");
@@ -212,7 +212,7 @@ test "Cursor.deleteCurrentKey()" {
     defer env.close();
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false });
+        const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         defer txn.abort();
 
         const db = try Database.open(txn, .{ .create = true });
@@ -245,7 +245,7 @@ test "seek" {
     defer env.close();
 
     {
-        const txn = try Transaction.open(env, .{ .read_only = false });
+        const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         defer txn.abort();
 
         const db = try Database.open(txn, .{ .create = true });
@@ -275,7 +275,7 @@ test "parent transactions" {
     const env = try Environment.open(path, .{});
     defer env.close();
 
-    const parent = try Transaction.open(env, .{ .read_only = false });
+    const parent = try Transaction.open(env, .{ .mode = .ReadWrite });
     defer parent.abort();
 
     const parent_db = try Database.open(parent, .{ .create = true });
@@ -284,7 +284,7 @@ test "parent transactions" {
     try parent_db.set("c", "baz");
 
     {
-        const child = try Transaction.open(env, .{ .read_only = false, .parent = parent });
+        const child = try Transaction.open(env, .{ .mode = .ReadWrite, .parent = parent });
         errdefer child.abort();
         const child_db = try Database.open(child, .{});
         try child_db.delete("c");
@@ -294,7 +294,7 @@ test "parent transactions" {
     try expectEqual(@as(?[]const u8, null), try parent_db.get("c"));
 
     {
-        const child = try Transaction.open(env, .{ .read_only = false, .parent = parent });
+        const child = try Transaction.open(env, .{ .mode = .ReadWrite, .parent = parent });
         defer child.abort();
         const child_db = try Database.open(child, .{});
         try child_db.set("c", "baz");

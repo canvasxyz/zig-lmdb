@@ -7,19 +7,25 @@ const Environment = @import("environment.zig");
 const Transaction = @This();
 
 pub const Options = struct {
-    read_only: bool = true,
+    mode: Mode,
     parent: ?Transaction = null,
 };
 
+pub const Mode = enum { ReadOnly, ReadWrite };
+
+mode: Mode,
 ptr: ?*c.MDB_txn,
 
 pub fn open(env: Environment, options: Options) !Transaction {
-    var txn = Transaction{ .ptr = null };
+    var txn = Transaction{ .mode = options.mode, .ptr = null };
 
     {
         var flags: c_uint = 0;
-        if (options.read_only) {
-            flags |= c.MDB_RDONLY;
+        switch (options.mode) {
+            .ReadOnly => {
+                flags |= c.MDB_RDONLY;
+            },
+            .ReadWrite => {},
         }
 
         var parentPtr: ?*c.MDB_txn = null;

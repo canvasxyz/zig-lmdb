@@ -8,12 +8,13 @@ const Transaction = @import("transaction.zig");
 const Database = @import("database.zig");
 const Cursor = @This();
 
+txn: Transaction,
 ptr: ?*c.MDB_cursor,
 
 pub const Entry = struct { key: []const u8, value: []const u8 };
 
 pub fn open(db: Database) !Cursor {
-    var cursor = Cursor{ .ptr = null };
+    var cursor = Cursor{ .txn = db.txn, .ptr = null };
 
     try switch (c.mdb_cursor_open(db.txn.ptr, db.dbi, &cursor.ptr)) {
         0 => {},
@@ -28,13 +29,9 @@ pub fn close(self: Cursor) void {
     c.mdb_cursor_close(self.ptr);
 }
 
-pub fn getTransaction(self: Cursor) Transaction {
-    return Transaction{ .ptr = c.mdb_cursor_txn(self.ptr) };
-}
 pub fn getDatabase(self: Cursor) Database {
-    const txn = self.getTransaction();
     const dbi = c.mdb_cursor_dbi(self.ptr);
-    return Database{ .txn = txn, .dbi = dbi };
+    return Database{ .txn = self.txn, .dbi = dbi };
 }
 
 pub fn getCurrentEntry(self: Cursor) !Entry {

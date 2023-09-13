@@ -52,7 +52,7 @@ const Context = struct {
     }
 
     fn initialize(ctx: Context) !void {
-        const txn = try lmdb.Transaction.open(ctx.env, .{ .read_only = false });
+        const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
 
         const db = try lmdb.Database.open(txn, .{ .create = true });
@@ -92,7 +92,7 @@ const Context = struct {
             timer.reset();
             operations += batch_size;
 
-            const txn = try lmdb.Transaction.open(ctx.env, .{ .read_only = true });
+            const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadOnly });
             defer txn.abort();
 
             const db = try lmdb.Database.open(txn, .{});
@@ -120,7 +120,7 @@ const Context = struct {
         for (&runtimes, 0..) |*t, i| {
             timer.reset();
 
-            const txn = try lmdb.Transaction.open(ctx.env, .{ .read_only = false });
+            const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadWrite });
             errdefer txn.abort();
 
             const db = try lmdb.Database.open(txn, .{});
@@ -159,7 +159,7 @@ const Context = struct {
             timer.reset();
             operations += ctx.size;
 
-            const txn = try lmdb.Transaction.open(ctx.env, .{ .read_only = true });
+            const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadOnly });
             defer txn.abort();
 
             const db = try lmdb.Database.open(txn, .{});

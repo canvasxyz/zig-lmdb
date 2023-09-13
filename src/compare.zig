@@ -12,9 +12,9 @@ const Options = struct {
 };
 
 pub fn compareEnvironments(env_a: Environment, env_b: Environment, options: Options) !usize {
-    const txn_a = try Transaction.open(env_a, .{ .read_only = true });
+    const txn_a = try Transaction.open(env_a, .{ .mode = .ReadOnly });
     defer txn_a.abort();
-    const txn_b = try Transaction.open(env_b, .{ .read_only = true });
+    const txn_b = try Transaction.open(env_b, .{ .mode = .ReadOnly });
     defer txn_b.abort();
 
     if (options.dbs) |dbs| {
