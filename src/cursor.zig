@@ -28,6 +28,15 @@ pub fn close(self: Cursor) void {
     c.mdb_cursor_close(self.ptr);
 }
 
+pub fn getTransaction(self: Cursor) Transaction {
+    return Transaction{ .ptr = c.mdb_cursor_txn(self.ptr) };
+}
+pub fn getDatabase(self: Cursor) Database {
+    const txn = self.getTransaction();
+    const dbi = c.mdb_cursor_dbi(self.ptr);
+    return Database{ .txn = txn, .dbi = dbi };
+}
+
 pub fn getCurrentEntry(self: Cursor) !Entry {
     var k: c.MDB_val = undefined;
     var v: c.MDB_val = undefined;
