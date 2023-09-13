@@ -1,1 +1,1 @@
-// pub usingnamespace @cImport(@cInclude("lmdb.h"));
+pub usingnamespace @cImport(@cInclude("lmdb.h"));
