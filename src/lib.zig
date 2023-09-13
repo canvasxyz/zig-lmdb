@@ -1,10 +1,7 @@
 pub const Environment = @import("environment.zig");
 pub const Transaction = @import("transaction.zig");
+pub const Database = @import("database.zig");
 pub const Cursor = @import("cursor.zig");
 
-const utils = @import("utils.zig");
-const compare = @import("compare.zig");
-
-pub const compareEntries = compare.compareEntries;
-pub const expectEqualKeys = utils.expectEqualKeys;
-pub const expectEqualEntries = utils.expectEqualEntries;
+pub const utils = @import("utils.zig");
+pub const compare = @import("compare.zig");

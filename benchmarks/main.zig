@@ -3,7 +3,6 @@ const allocator = std.heap.c_allocator;
 const hex = std.fmt.fmtSliceHexLower;
 
 const lmdb = @import("lmdb");
-const utils = @import("utils.zig");
 
 const data_directory_name = "data";
 const value_size = 8;
@@ -12,6 +11,18 @@ var prng = std.rand.DefaultPrng.init(0x0000000000000000);
 var random = prng.random();
 
 const ms: f64 = 1_000_000.0;
+
+pub fn main() !void {
+    const log = std.io.getStdOut().writer();
+
+    _ = try log.write("## Benchmarks\n\n");
+
+    try Context.exec("iota-1000", 1_000, log, .{});
+    _ = try log.write("\n");
+    try Context.exec("iota-50000", 50_000, log, .{});
+    _ = try log.write("\n");
+    try Context.exec("iota-1000000", 1_000_000, log, .{ .map_size = 2 * 1024 * 1024 * 1024 });
+}
 
 const Context = struct {
     env: lmdb.Environment,
@@ -23,7 +34,7 @@ const Context = struct {
         defer tmp.cleanup();
 
         try tmp.dir.makeDir(name);
-        const path = try utils.resolvePath(&tmp.dir, name);
+        const path = try lmdb.utils.resolvePath(tmp.dir, name);
         const env = try lmdb.Environment.open(path, options);
         defer env.close();
 
@@ -44,6 +55,8 @@ const Context = struct {
         const txn = try lmdb.Transaction.open(ctx.env, .{ .read_only = false });
         errdefer txn.abort();
 
+        const db = try lmdb.Database.open(txn, .{ .create = true });
+
         var key: [4]u8 = undefined;
         var value: [value_size]u8 = undefined;
 
@@ -51,7 +64,7 @@ const Context = struct {
         while (i < ctx.size) : (i += 1) {
             std.mem.writeIntBig(u32, &key, i);
             std.crypto.hash.Blake3.hash(&key, &value, .{});
-            try txn.set(&key, &value);
+            try db.set(&key, &value);
         }
 
         try txn.commit();
@@ -82,19 +95,21 @@ const Context = struct {
             const txn = try lmdb.Transaction.open(ctx.env, .{ .read_only = true });
             defer txn.abort();
 
+            const db = try lmdb.Database.open(txn, .{});
+
             var key: [4]u8 = undefined;
 
             var n: u32 = 0;
             while (n < batch_size) : (n += 1) {
                 std.mem.writeIntBig(u32, &key, random.uintLessThan(u32, ctx.size));
-                const value = try txn.get(&key);
+                const value = try db.get(&key);
                 std.debug.assert(value.?.len == value_size);
             }
 
             t.* = @as(f64, @floatFromInt(timer.read())) / ms;
         }
 
-        try utils.printRow(ctx.log, name, &runtimes, operations);
+        try ctx.printRow(name, &runtimes, operations);
     }
 
     fn setRandomEntries(ctx: Context, comptime name: []const u8, comptime iterations: u32, comptime batch_size: usize) !void {
@@ -108,6 +123,8 @@ const Context = struct {
             const txn = try lmdb.Transaction.open(ctx.env, .{ .read_only = false });
             errdefer txn.abort();
 
+            const db = try lmdb.Database.open(txn, .{});
+
             var key: [4]u8 = undefined;
             var seed: [12]u8 = undefined;
             var value: [8]u8 = undefined;
@@ -120,7 +137,7 @@ const Context = struct {
                 std.mem.writeIntBig(u32, &key, random.uintLessThan(u32, ctx.size));
                 std.mem.writeIntBig(u32, seed[8..], n);
                 std.crypto.hash.Blake3.hash(&seed, &value, .{});
-                try txn.set(&key, &value);
+                try db.set(&key, &value);
             }
 
             try txn.commit();
@@ -130,7 +147,7 @@ const Context = struct {
             operations += batch_size;
         }
 
-        try utils.printRow(ctx.log, name, &runtimes, operations);
+        try ctx.printRow(name, &runtimes, operations);
     }
 
     fn iterateEntries(ctx: Context, comptime iterations: u32) !void {
@@ -145,7 +162,9 @@ const Context = struct {
             const txn = try lmdb.Transaction.open(ctx.env, .{ .read_only = true });
             defer txn.abort();
 
-            const cursor = try lmdb.Cursor.open(txn);
+            const db = try lmdb.Database.open(txn, .{});
+
+            const cursor = try lmdb.Cursor.open(db);
             defer cursor.close();
 
             if (try cursor.goToFirst()) |first_key| {
@@ -164,18 +183,33 @@ const Context = struct {
             t.* = @as(f64, @floatFromInt(timer.read())) / ms;
         }
 
-        try utils.printRow(ctx.log, "iterate over all entries", &runtimes, operations);
+        try ctx.printRow("iterate over all entries", &runtimes, operations);
+    }
+
+    pub fn printRow(ctx: Context, name: []const u8, runtimes: []const f64, operations: usize) !void {
+        var sum: f64 = 0;
+        var min: f64 = @as(f64, @floatFromInt(std.math.maxInt(u64)));
+        var max: f64 = 0;
+        for (runtimes) |t| {
+            sum += t;
+            if (t < min) min = t;
+            if (t > max) max = t;
+        }
+
+        const avg = sum / @as(f64, @floatFromInt(runtimes.len));
+
+        var sum_sq: f64 = 0;
+        for (runtimes) |t| {
+            const delta = t - avg;
+            sum_sq += delta * delta;
+        }
+
+        const std_dev = std.math.sqrt(sum_sq / @as(f64, @floatFromInt(runtimes.len)));
+        const ops_per_second = @as(f64, @floatFromInt(operations * 1_000)) / sum;
+
+        try ctx.log.print(
+            "| {s: <30} | {d: >10} | {d: >10.4} | {d: >10.4} | {d: >10.4} | {d: >8.4} | {d: >10.0} |\n",
+            .{ name, runtimes.len, min, max, avg, std_dev, ops_per_second },
+        );
     }
 };
-
-pub fn main() !void {
-    const log = std.io.getStdOut().writer();
-
-    _ = try log.write("## Benchmarks\n\n");
-
-    try Context.exec("iota-1000", 1_000, log, .{});
-    _ = try log.write("\n");
-    try Context.exec("iota-50000", 50_000, log, .{});
-    _ = try log.write("\n");
-    try Context.exec("iota-1000000", 1_000_000, log, .{ .map_size = 2 * 1024 * 1024 * 1024 });
-}
