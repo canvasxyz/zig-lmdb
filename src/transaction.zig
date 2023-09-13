@@ -1,8 +1,7 @@
 const std = @import("std");
 const hex = std.fmt.fmtSliceHexLower;
 
-// const c = @import("c.zig");
-const c = @import("openldap");
+const c = @import("c.zig");
 const Environment = @import("environment.zig");
 
 const Transaction = @This();
