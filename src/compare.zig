@@ -7,7 +7,7 @@ const Database = @import("database.zig");
 const Cursor = @import("cursor.zig");
 
 const Options = struct {
-    dbs: ?[][]const u8 = null,
+    dbs: ?[][*:0]const u8 = null,
     log: ?std.fs.File.Writer = null,
 };
 

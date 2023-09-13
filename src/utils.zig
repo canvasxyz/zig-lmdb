@@ -16,11 +16,6 @@ pub fn resolvePath(dir: std.fs.Dir, name: []const u8) ![*:0]const u8 {
     return @as([*:0]const u8, @ptrCast(buffer[0..path.len]));
 }
 
-pub fn getCString(value: []const u8) [*:0]const u8 {
-    @memcpy(buffer[0..value.len], value);
-    return @as([*:0]const u8, @ptrCast(&buffer));
-}
-
 pub fn expectEqualKeys(actual: ?[]const u8, expected: ?[]const u8) !void {
     if (actual) |actual_bytes| {
         if (expected) |expected_bytes| {

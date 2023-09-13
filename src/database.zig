@@ -11,20 +11,19 @@ txn: Transaction,
 dbi: c.MDB_dbi,
 
 pub const Options = struct {
-    name: ?[]const u8 = null,
-    create: bool = false,
+    name: ?[*:0]const u8 = null,
+    create: bool = true,
 };
 
 pub fn open(txn: Transaction, options: Options) !Database {
-    var db = Database{ .txn = txn, .dbi = 0 };
-
     var flags: c_uint = 0;
     if (options.create) {
         flags |= c.MDB_CREATE;
     }
 
-    const name = if (options.name) |value| utils.getCString(value) else null;
-    try switch (c.mdb_dbi_open(txn.ptr, name, flags, &db.dbi)) {
+    var db = Database{ .txn = txn, .dbi = 0 };
+
+    try switch (c.mdb_dbi_open(txn.ptr, options.name, flags, &db.dbi)) {
         0 => {},
         c.MDB_NOTFOUND => error.LmdbDatabaseNotFound,
         c.MDB_DBS_FULL => error.LmdbDatabaseFull,
