@@ -2,8 +2,7 @@ const std = @import("std");
 const assert = std.debug.assert;
 const hex = std.fmt.fmtSliceHexLower;
 
-// const c = @import("c.zig");
-const c = @import("openldap");
+const c = @import("c.zig");
 
 const Transaction = @import("transaction.zig");
 const Cursor = @This();
