@@ -10,6 +10,8 @@ const Cursor = @This();
 
 ptr: ?*c.MDB_cursor,
 
+pub const Entry = struct { key: []const u8, value: []const u8 };
+
 pub fn open(db: Database) !Cursor {
     var cursor = Cursor{ .ptr = null };
 
@@ -25,8 +27,6 @@ pub fn open(db: Database) !Cursor {
 pub fn close(self: Cursor) void {
     c.mdb_cursor_close(self.ptr);
 }
-
-pub const Entry = struct { key: []const u8, value: []const u8 };
 
 pub fn getCurrentEntry(self: Cursor) !Entry {
     var k: c.MDB_val = undefined;

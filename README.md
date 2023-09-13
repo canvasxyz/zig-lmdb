@@ -2,6 +2,73 @@
 
 Zig bindings for LMDB.
 
+## API
+
+### `Environment`
+
+```zig
+pub const Options = struct {
+    map_size: usize = 10485760,
+    max_dbs: u32 = 0,
+    mode: u16 = 0o664,
+};
+
+pub fn open(path: [*:0]const u8, options: Options) !Environment
+pub fn close(self: Environment) void
+pub fn flush(self: Environment) !void
+pub fn stat(self: Environment) !Stat
+```
+
+### `Transaction`
+
+```zig
+pub const Options = struct {
+    read_only: bool = true,
+    parent: ?Transaction = null,
+};
+
+pub fn open(env: Environment, options: Options) !Transaction
+pub fn getEnvironment(self: Transaction) !Environment
+pub fn commit(self: Transaction) !void
+pub fn abort(self: Transaction) void
+```
+
+### `Database`
+
+```zig
+pub const Options = struct {
+    name: ?[]const u8 = null,
+    create: bool = false,
+};
+
+pub fn open(txn: Transaction, options: Options) !Database
+pub fn close(self: Database) void
+pub fn stat(self: Database) !Stat
+pub fn get(self: Database, key: []const u8) !?[]const u8
+pub fn set(self: Database, key: []const u8, value: []const u8) !void
+pub fn delete(self: Database, key: []const u8) !void
+```
+
+### `Cursor`
+
+```zig
+pub const Entry = struct { key: []const u8, value: []const u8 };
+
+pub fn open(db: Database) !Cursor
+pub fn close(self: Cursor) void
+pub fn getCurrentEntry(self: Cursor) !Entry
+pub fn getCurrentKey(self: Cursor) ![]const u8
+pub fn getCurrentValue(self: Cursor) ![]const u8
+pub fn setCurrentValue(self: Cursor, value: []const u8) !void
+pub fn deleteCurrentKey(self: Cursor) !void
+pub fn goToNext(self: Cursor) !?[]const u8
+pub fn goToPrevious(self: Cursor) !?[]const u8
+pub fn goToLast(self: Cursor) !?[]const u8
+pub fn goToFirst(self: Cursor) !?[]const u8
+pub fn goToKey(self: Cursor, key: []const u8) !void
+pub fn seek(self: Cursor, key: []const u8) !?[]const u8
+```
+
 ## Benchmarks
 
 Run the benchmarks with
