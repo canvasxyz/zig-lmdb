@@ -22,51 +22,59 @@ pub fn stat(self: Environment) !Stat
 ### `Transaction`
 
 ```zig
-pub const Options = struct {
-    read_only: bool = true,
-    parent: ?Transaction = null,
-};
+pub const Transaction {
+    pub const Options = struct {
+        read_only: bool = true,
+        parent: ?Transaction = null,
+    };
 
-pub fn open(env: Environment, options: Options) !Transaction
-pub fn getEnvironment(self: Transaction) !Environment
-pub fn commit(self: Transaction) !void
-pub fn abort(self: Transaction) void
+    pub fn open(env: Environment, options: Options) !Transaction {}
+    pub fn getEnvironment(self: Transaction) !Environment {}
+    pub fn commit(self: Transaction) !void {}
+    pub fn abort(self: Transaction) void {}
+};
 ```
 
 ### `Database`
 
 ```zig
-pub const Options = struct {
-    name: ?[]const u8 = null,
-    create: bool = false,
-};
+pub const Database = struct {
+    pub const Options = struct {
+        name: ?[]const u8 = null,
+        create: bool = false,
+    };
 
-pub fn open(txn: Transaction, options: Options) !Database
-pub fn close(self: Database) void
-pub fn stat(self: Database) !Stat
-pub fn get(self: Database, key: []const u8) !?[]const u8
-pub fn set(self: Database, key: []const u8, value: []const u8) !void
-pub fn delete(self: Database, key: []const u8) !void
+    pub fn open(txn: Transaction, options: Options) !Database {}
+    pub fn close(self: Database) void {}
+    pub fn stat(self: Database) !Stat {}
+    pub fn get(self: Database, key: []const u8) !?[]const u8 {}
+    pub fn set(self: Database, key: []const u8, value: []const u8) !void {}
+    pub fn delete(self: Database, key: []const u8) !void {}
+};
 ```
 
 ### `Cursor`
 
 ```zig
-pub const Entry = struct { key: []const u8, value: []const u8 };
+pub const Cursor = struct {
+    pub const Entry = struct { key: []const u8, value: []const u8 };
 
-pub fn open(db: Database) !Cursor
-pub fn close(self: Cursor) void
-pub fn getCurrentEntry(self: Cursor) !Entry
-pub fn getCurrentKey(self: Cursor) ![]const u8
-pub fn getCurrentValue(self: Cursor) ![]const u8
-pub fn setCurrentValue(self: Cursor, value: []const u8) !void
-pub fn deleteCurrentKey(self: Cursor) !void
-pub fn goToNext(self: Cursor) !?[]const u8
-pub fn goToPrevious(self: Cursor) !?[]const u8
-pub fn goToLast(self: Cursor) !?[]const u8
-pub fn goToFirst(self: Cursor) !?[]const u8
-pub fn goToKey(self: Cursor, key: []const u8) !void
-pub fn seek(self: Cursor, key: []const u8) !?[]const u8
+    pub fn open(db: Database) !Cursor {}
+    pub fn close(self: Cursor) void {}
+    pub fn getTransaction(self: Cursor) Transaction {}
+    pub fn getDatabase(self: Cursor) Database {}
+    pub fn getCurrentEntry(self: Cursor) !Entry {}
+    pub fn getCurrentKey(self: Cursor) ![]const u8 {}
+    pub fn getCurrentValue(self: Cursor) ![]const u8 {}
+    pub fn setCurrentValue(self: Cursor, value: []const u8) !void {}
+    pub fn deleteCurrentKey(self: Cursor) !void {}
+    pub fn goToNext(self: Cursor) !?[]const u8 {}
+    pub fn goToPrevious(self: Cursor) !?[]const u8 {}
+    pub fn goToLast(self: Cursor) !?[]const u8 {}
+    pub fn goToFirst(self: Cursor) !?[]const u8 {}
+    pub fn goToKey(self: Cursor, key: []const u8) !void {}
+    pub fn seek(self: Cursor, key: []const u8) !?[]const u8 {}
+};
 ```
 
 ## Benchmarks

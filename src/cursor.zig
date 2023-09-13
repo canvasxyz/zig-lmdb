@@ -29,6 +29,10 @@ pub fn close(self: Cursor) void {
     c.mdb_cursor_close(self.ptr);
 }
 
+pub fn getTransaction(self: Cursor) Transaction {
+    return self.txn;
+}
+
 pub fn getDatabase(self: Cursor) Database {
     const dbi = c.mdb_cursor_dbi(self.ptr);
     return Database{ .txn = self.txn, .dbi = dbi };
