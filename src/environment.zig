@@ -3,8 +3,9 @@ const hex = std.fmt.fmtSliceHexLower;
 
 const c = @import("c.zig");
 
-const Environment = @This();
 const Stat = @import("stat.zig");
+
+const Environment = @This();
 
 pub const Options = struct {
     map_size: usize = 10485760,
@@ -25,18 +26,23 @@ ptr: ?*c.MDB_env = null,
 
 pub fn open(path: [*:0]const u8, options: Options) !Environment {
     var env = Environment{};
-    try switch (c.mdb_env_create(&env.ptr)) {
+    try env.init(path, options);
+    return env;
+}
+
+pub fn init(self: *Environment, path: [*:0]const u8, options: Options) !void {
+    try switch (c.mdb_env_create(&self.ptr)) {
         0 => {},
         else => error.LmdbEnvironmentCreateError,
     };
 
-    try switch (c.mdb_env_set_mapsize(env.ptr, options.map_size)) {
+    try switch (c.mdb_env_set_mapsize(self.ptr, options.map_size)) {
         0 => {},
         @intFromEnum(std.os.E.INVAL) => error.INVAL,
         else => error.LmdbEnvironmentError,
     };
 
-    try switch (c.mdb_env_set_maxdbs(env.ptr, options.max_dbs)) {
+    try switch (c.mdb_env_set_maxdbs(self.ptr, options.max_dbs)) {
         0 => {},
         @intFromEnum(std.os.E.INVAL) => error.INVAL,
         else => error.LmdbEnvironmentError,
@@ -44,8 +50,8 @@ pub fn open(path: [*:0]const u8, options: Options) !Environment {
 
     const flags: u32 = c.MDB_NOTLS;
 
-    errdefer c.mdb_env_close(env.ptr);
-    try switch (c.mdb_env_open(env.ptr, path, flags, options.mode)) {
+    errdefer c.mdb_env_close(self.ptr);
+    try switch (c.mdb_env_open(self.ptr, path, flags, options.mode)) {
         0 => {},
         c.MDB_VERSION_MISMATCH => error.LmdbEnvironmentVersionMismatch,
         c.MDB_INVALID => error.LmdbCorruptDatabase,
@@ -54,8 +60,6 @@ pub fn open(path: [*:0]const u8, options: Options) !Environment {
         @intFromEnum(std.os.E.AGAIN) => error.AGAIN,
         else => error.LmdbEnvironmentError,
     };
-
-    return env;
 }
 
 pub fn close(self: Environment) void {

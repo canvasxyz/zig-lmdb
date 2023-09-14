@@ -14,15 +14,20 @@ ptr: ?*c.MDB_cursor,
 pub const Entry = struct { key: []const u8, value: []const u8 };
 
 pub fn open(db: Database) !Cursor {
-    var cursor = Cursor{ .txn = db.txn, .ptr = null };
+    var cursor: Cursor = undefined;
+    try cursor.init(db);
+    return cursor;
+}
 
-    try switch (c.mdb_cursor_open(db.txn.ptr, db.dbi, &cursor.ptr)) {
+pub fn init(self: *Cursor, db: Database) !void {
+    self.txn = db.txn;
+    self.ptr = null;
+
+    return switch (c.mdb_cursor_open(db.txn.ptr, db.dbi, &self.ptr)) {
         0 => {},
         @intFromEnum(std.os.E.INVAL) => error.INVAL,
         else => error.LmdbCursorOpenError,
     };
-
-    return cursor;
 }
 
 pub fn close(self: Cursor) void {

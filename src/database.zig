@@ -16,21 +16,26 @@ pub const Options = struct {
 };
 
 pub fn open(txn: Transaction, options: Options) !Database {
+    var db: Database = undefined;
+    try db.init(txn, options);
+    return db;
+}
+
+pub fn init(self: *Database, txn: Transaction, options: Options) !void {
+    self.txn = txn;
+    self.dbi = 0;
+
     var flags: c_uint = 0;
     if (options.create) {
         flags |= c.MDB_CREATE;
     }
 
-    var db = Database{ .txn = txn, .dbi = 0 };
-
-    try switch (c.mdb_dbi_open(txn.ptr, options.name, flags, &db.dbi)) {
+    try switch (c.mdb_dbi_open(txn.ptr, options.name, flags, &self.dbi)) {
         0 => {},
         c.MDB_NOTFOUND => error.LmdbDatabaseNotFound,
         c.MDB_DBS_FULL => error.LmdbDatabaseFull,
         else => error.LmdbDatabaseOpenError,
     };
-
-    return db;
 }
 
 pub fn close(self: Database) void {

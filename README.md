@@ -29,6 +29,7 @@ pub const Transaction {
     };
 
     pub fn open(env: Environment, options: Options) !Transaction {}
+    pub fn init(self: *Transaction, env: Environment, options: Options) !void
     pub fn getEnvironment(self: Transaction) !Environment {}
     pub fn commit(self: Transaction) !void {}
     pub fn abort(self: Transaction) void {}
@@ -45,6 +46,7 @@ pub const Database = struct {
     };
 
     pub fn open(txn: Transaction, options: Options) !Database {}
+    pub fn init(self: *Database, txn: Transaction, options: Options) !void
     pub fn close(self: Database) void {}
     pub fn stat(self: Database) !Stat {}
     pub fn get(self: Database, key: []const u8) !?[]const u8 {}
@@ -60,6 +62,7 @@ pub const Cursor = struct {
     pub const Entry = struct { key: []const u8, value: []const u8 };
 
     pub fn open(db: Database) !Cursor {}
+    pub fn init(self: *Cursor, db: Database) !void
     pub fn close(self: Cursor) void {}
     pub fn getTransaction(self: Cursor) Transaction {}
     pub fn getDatabase(self: Cursor) Database {}
