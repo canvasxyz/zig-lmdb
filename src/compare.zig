@@ -37,9 +37,9 @@ pub fn compareDatabases(txn_a: Transaction, db_a: u32, txn_b: Transaction, db_b:
 
     var differences: usize = 0;
 
-    const cursor_a = try Cursor.open(txn_a, .{ .database = db_a });
+    const cursor_a = try Cursor.open(txn_a, db_a);
     defer cursor_a.close();
-    const cursor_b = try Cursor.open(txn_b, .{ .database = db_b });
+    const cursor_b = try Cursor.open(txn_b, db_b);
     defer cursor_b.close();
 
     var key_a = try cursor_a.goToFirst();

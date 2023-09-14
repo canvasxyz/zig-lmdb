@@ -55,6 +55,8 @@ const Context = struct {
         const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
 
+        const dbi = try txn.openDatabase(.{});
+
         var key: [4]u8 = undefined;
         var value: [value_size]u8 = undefined;
 
@@ -62,7 +64,7 @@ const Context = struct {
         while (i < ctx.size) : (i += 1) {
             std.mem.writeIntBig(u32, &key, i);
             std.crypto.hash.Blake3.hash(&key, &value, .{});
-            try txn.set(&key, &value, .{});
+            try txn.set(dbi, &key, &value);
         }
 
         try txn.commit();
@@ -93,12 +95,14 @@ const Context = struct {
             const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadOnly });
             defer txn.abort();
 
+            const dbi = try txn.openDatabase(.{});
+
             var key: [4]u8 = undefined;
 
             var n: u32 = 0;
             while (n < batch_size) : (n += 1) {
                 std.mem.writeIntBig(u32, &key, random.uintLessThan(u32, ctx.size));
-                const value = try txn.get(&key, .{});
+                const value = try txn.get(dbi, &key);
                 std.debug.assert(value.?.len == value_size);
             }
 
@@ -119,6 +123,8 @@ const Context = struct {
             const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadWrite });
             errdefer txn.abort();
 
+            const dbi = try txn.openDatabase(.{});
+
             var key: [4]u8 = undefined;
             var seed: [12]u8 = undefined;
             var value: [8]u8 = undefined;
@@ -131,7 +137,7 @@ const Context = struct {
                 std.mem.writeIntBig(u32, &key, random.uintLessThan(u32, ctx.size));
                 std.mem.writeIntBig(u32, seed[8..], n);
                 std.crypto.hash.Blake3.hash(&seed, &value, .{});
-                try txn.set(&key, &value, .{});
+                try txn.set(dbi, &key, &value);
             }
 
             try txn.commit();
@@ -156,7 +162,7 @@ const Context = struct {
             const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadOnly });
             defer txn.abort();
 
-            const cursor = try lmdb.Cursor.open(txn, .{});
+            const cursor = try lmdb.Cursor.open(txn, null);
             defer cursor.close();
 
             if (try cursor.goToFirst()) |first_key| {

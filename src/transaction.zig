@@ -12,7 +12,6 @@ pub const TransactionOptions = struct {
     parent: ?Transaction = null,
 };
 
-pub const DBI = struct { dbi: ?u32 = null };
 pub const DatabaseOptions = struct {
     name: ?[*:0]const u8 = null,
     create: bool = true,
@@ -90,8 +89,9 @@ pub fn commit(self: Transaction) !void {
     };
 }
 
-pub fn stat(self: Transaction, options: DBI) !Stat {
-    const dbi = options.dbi orelse try self.openDatabase(.{});
+pub fn stat(self: Transaction, db: ?u32) !Stat {
+    const dbi = db orelse try self.openDatabase(.{});
+
     var result: c.MDB_stat = undefined;
     try switch (c.mdb_stat(self.txn.ptr, dbi, &result)) {
         0 => {},
@@ -109,10 +109,12 @@ pub fn stat(self: Transaction, options: DBI) !Stat {
     };
 }
 
-pub fn get(self: Transaction, key: []const u8, options: DBI) !?[]const u8 {
-    const dbi = options.dbi orelse try self.openDatabase(.{});
+pub fn get(self: Transaction, db: ?u32, key: []const u8) !?[]const u8 {
+    const dbi = db orelse try self.openDatabase(.{});
+
     var k: c.MDB_val = .{ .mv_size = key.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(key.ptr))) };
     var v: c.MDB_val = .{ .mv_size = 0, .mv_data = null };
+
     return switch (c.mdb_get(self.ptr, dbi, &k, &v)) {
         0 => @as([*]u8, @ptrCast(v.mv_data))[0..v.mv_size],
         c.MDB_NOTFOUND => null,
@@ -121,10 +123,12 @@ pub fn get(self: Transaction, key: []const u8, options: DBI) !?[]const u8 {
     };
 }
 
-pub fn set(self: Transaction, key: []const u8, value: []const u8, options: DBI) !void {
-    const dbi = options.dbi orelse try self.openDatabase(.{});
+pub fn set(self: Transaction, db: ?u32, key: []const u8, value: []const u8) !void {
+    const dbi = db orelse try self.openDatabase(.{});
+
     var k: c.MDB_val = .{ .mv_size = key.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(key.ptr))) };
     var v: c.MDB_val = .{ .mv_size = value.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(value.ptr))) };
+
     try switch (c.mdb_put(self.ptr, dbi, &k, &v, 0)) {
         0 => {},
         c.MDB_MAP_FULL => error.LmdbMapFull,
@@ -135,8 +139,9 @@ pub fn set(self: Transaction, key: []const u8, value: []const u8, options: DBI) 
     };
 }
 
-pub fn delete(self: Transaction, key: []const u8, options: DBI) !void {
-    const dbi = options.dbi orelse try self.openDatabase(.{});
+pub fn delete(self: Transaction, db: ?u32, key: []const u8) !void {
+    const dbi = db orelse try self.openDatabase(.{});
+
     var k: c.MDB_val = .{ .mv_size = key.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(key.ptr))) };
     try switch (c.mdb_del(self.ptr, dbi, &k, null)) {
         0 => {},

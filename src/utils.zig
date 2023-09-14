@@ -27,8 +27,8 @@ pub fn expectEqualKeys(actual: ?[]const u8, expected: ?[]const u8) !void {
     }
 }
 
-pub fn expectEqualEntries(txn: Transaction, database: ?u32, entries: []const [2][]const u8) !void {
-    const cursor = try Cursor.open(txn, .{ .database = database });
+pub fn expectEqualEntries(txn: Transaction, db: ?u32, entries: []const [2][]const u8) !void {
+    const cursor = try Cursor.open(txn, db);
     defer cursor.close();
 
     var i: usize = 0;
@@ -56,10 +56,10 @@ test "expectEqualEntries" {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
 
-        try txn.set("a", "foo", .{});
-        try txn.set("b", "bar", .{});
-        try txn.set("c", "baz", .{});
-        try txn.set("d", "qux", .{});
+        try txn.set(null, "a", "foo");
+        try txn.set(null, "b", "bar");
+        try txn.set(null, "c", "baz");
+        try txn.set(null, "d", "qux");
         try txn.commit();
     }
 
