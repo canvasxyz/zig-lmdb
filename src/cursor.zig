@@ -11,11 +11,11 @@ ptr: ?*c.MDB_cursor = null,
 
 pub const Entry = struct { key: []const u8, value: []const u8 };
 
-pub fn open(txn: Transaction, db: ?u32) !Cursor {
-    const dbi = db orelse try txn.openDatabase(.{});
+pub fn open(txn: Transaction, dbi: ?Transaction.DBI) !Cursor {
+    const database = dbi orelse try txn.openDatabase(.{});
 
     var cursor = Cursor{};
-    try switch (c.mdb_cursor_open(txn.ptr, dbi, &cursor.ptr)) {
+    try switch (c.mdb_cursor_open(txn.ptr, database, &cursor.ptr)) {
         0 => {},
         @intFromEnum(std.os.E.INVAL) => error.INVAL,
         else => error.LmdbCursorOpenError,

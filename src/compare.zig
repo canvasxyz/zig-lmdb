@@ -32,7 +32,7 @@ pub fn compareEnvironments(env_a: Environment, env_b: Environment, options: Opti
     }
 }
 
-pub fn compareDatabases(txn_a: Transaction, db_a: u32, txn_b: Transaction, db_b: u32, options: Options) !usize {
+pub fn compareDatabases(txn_a: Transaction, db_a: ?Transaction.DBI, txn_b: Transaction, db_b: ?Transaction.DBI, options: Options) !usize {
     if (options.log) |log| try log.print("{s:-<80}\n", .{"START DIFF "});
 
     var differences: usize = 0;

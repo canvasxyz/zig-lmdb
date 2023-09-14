@@ -29,7 +29,7 @@ const Context = struct {
     size: u32,
     log: std.fs.File.Writer,
 
-    pub fn exec(name: []const u8, size: u32, log: std.fs.File.Writer, options: lmdb.Environment.Options) !void {
+    pub fn exec(name: []const u8, size: u32, log: std.fs.File.Writer, options: lmdb.Environment.EnvironmentOptions) !void {
         var tmp = std.testing.tmpDir(.{});
         defer tmp.cleanup();
 

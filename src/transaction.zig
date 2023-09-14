@@ -19,7 +19,7 @@ pub const DatabaseOptions = struct {
 
 pub const Mode = enum { ReadOnly, ReadWrite };
 
-pub const DBI = ?u32;
+pub const DBI = u32;
 
 ptr: ?*c.MDB_txn = null,
 
@@ -54,8 +54,8 @@ pub fn open(env: Environment, options: TransactionOptions) !Transaction {
     return txn;
 }
 
-pub fn openDatabase(self: Transaction, options: DatabaseOptions) !u32 {
-    var dbi: u32 = 0;
+pub fn openDatabase(self: Transaction, options: DatabaseOptions) !DBI {
+    var dbi: DBI = 0;
 
     var flags: c_uint = 0;
     if (options.create) {
@@ -91,7 +91,7 @@ pub fn commit(self: Transaction) !void {
     };
 }
 
-pub fn stat(self: Transaction, dbi: DBI) !Stat {
+pub fn stat(self: Transaction, dbi: ?DBI) !Stat {
     const database = dbi orelse try self.openDatabase(.{});
 
     var result: c.MDB_stat = undefined;
@@ -111,7 +111,7 @@ pub fn stat(self: Transaction, dbi: DBI) !Stat {
     };
 }
 
-pub fn get(self: Transaction, dbi: DBI, key: []const u8) !?[]const u8 {
+pub fn get(self: Transaction, dbi: ?DBI, key: []const u8) !?[]const u8 {
     const database = dbi orelse try self.openDatabase(.{});
 
     var k: c.MDB_val = .{ .mv_size = key.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(key.ptr))) };
@@ -125,7 +125,7 @@ pub fn get(self: Transaction, dbi: DBI, key: []const u8) !?[]const u8 {
     };
 }
 
-pub fn set(self: Transaction, dbi: DBI, key: []const u8, value: []const u8) !void {
+pub fn set(self: Transaction, dbi: ?DBI, key: []const u8, value: []const u8) !void {
     const database = dbi orelse try self.openDatabase(.{});
 
     var k: c.MDB_val = .{ .mv_size = key.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(key.ptr))) };
@@ -141,7 +141,7 @@ pub fn set(self: Transaction, dbi: DBI, key: []const u8, value: []const u8) !voi
     };
 }
 
-pub fn delete(self: Transaction, dbi: DBI, key: []const u8) !void {
+pub fn delete(self: Transaction, dbi: ?DBI, key: []const u8) !void {
     const database = dbi orelse try self.openDatabase(.{});
 
     var k: c.MDB_val = .{ .mv_size = key.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(key.ptr))) };
