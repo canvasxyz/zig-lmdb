@@ -32,7 +32,7 @@ pub fn getTransaction(self: Cursor) Transaction {
     return .{ .ptr = c.mdb_cursor_txn(self.ptr) };
 }
 
-pub fn getDatabase(self: Cursor) u32 {
+pub fn getDatabase(self: Cursor) Transaction.DBI {
     return c.mdb_cursor_dbi(self.ptr);
 }
 

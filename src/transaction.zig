@@ -19,6 +19,8 @@ pub const DatabaseOptions = struct {
 
 pub const Mode = enum { ReadOnly, ReadWrite };
 
+pub const DBI = ?u32;
+
 ptr: ?*c.MDB_txn = null,
 
 pub fn open(env: Environment, options: TransactionOptions) !Transaction {
@@ -89,11 +91,11 @@ pub fn commit(self: Transaction) !void {
     };
 }
 
-pub fn stat(self: Transaction, db: ?u32) !Stat {
-    const dbi = db orelse try self.openDatabase(.{});
+pub fn stat(self: Transaction, dbi: DBI) !Stat {
+    const database = dbi orelse try self.openDatabase(.{});
 
     var result: c.MDB_stat = undefined;
-    try switch (c.mdb_stat(self.txn.ptr, dbi, &result)) {
+    try switch (c.mdb_stat(self.txn.ptr, database, &result)) {
         0 => {},
         @intFromEnum(std.os.E.INVAL) => error.INVAL,
         else => error.LmdbDatabaseStatError,
@@ -109,13 +111,13 @@ pub fn stat(self: Transaction, db: ?u32) !Stat {
     };
 }
 
-pub fn get(self: Transaction, db: ?u32, key: []const u8) !?[]const u8 {
-    const dbi = db orelse try self.openDatabase(.{});
+pub fn get(self: Transaction, dbi: DBI, key: []const u8) !?[]const u8 {
+    const database = dbi orelse try self.openDatabase(.{});
 
     var k: c.MDB_val = .{ .mv_size = key.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(key.ptr))) };
     var v: c.MDB_val = .{ .mv_size = 0, .mv_data = null };
 
-    return switch (c.mdb_get(self.ptr, dbi, &k, &v)) {
+    return switch (c.mdb_get(self.ptr, database, &k, &v)) {
         0 => @as([*]u8, @ptrCast(v.mv_data))[0..v.mv_size],
         c.MDB_NOTFOUND => null,
         @intFromEnum(std.os.E.INVAL) => error.INVAL,
@@ -123,13 +125,13 @@ pub fn get(self: Transaction, db: ?u32, key: []const u8) !?[]const u8 {
     };
 }
 
-pub fn set(self: Transaction, db: ?u32, key: []const u8, value: []const u8) !void {
-    const dbi = db orelse try self.openDatabase(.{});
+pub fn set(self: Transaction, dbi: DBI, key: []const u8, value: []const u8) !void {
+    const database = dbi orelse try self.openDatabase(.{});
 
     var k: c.MDB_val = .{ .mv_size = key.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(key.ptr))) };
     var v: c.MDB_val = .{ .mv_size = value.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(value.ptr))) };
 
-    try switch (c.mdb_put(self.ptr, dbi, &k, &v, 0)) {
+    try switch (c.mdb_put(self.ptr, database, &k, &v, 0)) {
         0 => {},
         c.MDB_MAP_FULL => error.LmdbMapFull,
         c.MDB_TXN_FULL => error.LmdbTxnFull,
@@ -139,11 +141,11 @@ pub fn set(self: Transaction, db: ?u32, key: []const u8, value: []const u8) !voi
     };
 }
 
-pub fn delete(self: Transaction, db: ?u32, key: []const u8) !void {
-    const dbi = db orelse try self.openDatabase(.{});
+pub fn delete(self: Transaction, dbi: DBI, key: []const u8) !void {
+    const database = dbi orelse try self.openDatabase(.{});
 
     var k: c.MDB_val = .{ .mv_size = key.len, .mv_data = @as([*]u8, @ptrFromInt(@intFromPtr(key.ptr))) };
-    try switch (c.mdb_del(self.ptr, dbi, &k, null)) {
+    try switch (c.mdb_del(self.ptr, database, &k, null)) {
         0 => {},
         c.MDB_NOTFOUND => error.KeyNotFound,
         @intFromEnum(std.os.E.ACCES) => error.ACCES,

@@ -9,13 +9,13 @@ The three data structures are `Environment`, `Transaction`, and `Cursor`.
 ### `Environment`
 
 ```zig
-pub const Options = struct {
+pub const EnvironmentOptions = struct {
     map_size: usize = 10485760,
     max_dbs: u32 = 0,
     mode: u16 = 0o664,
 };
 
-pub fn open(path: [*:0]const u8, options: Options) !Environment
+pub fn open(path: [*:0]const u8, options: EnvironmentOptions) !Environment
 pub fn close(self: Environment) void
 pub fn flush(self: Environment) !void
 pub fn stat(self: Environment) !Stat
@@ -26,14 +26,14 @@ pub fn stat(self: Environment) !Stat
 ```zig
 pub const Transaction {
     pub const Mode = enum { ReadOnly, ReadWrite };
+    pub const DBI = ?u32;
 
     pub const TransactionOptions = struct {
         mode: Mode,
         parent: ?Transaction = null,
     };
 
-    pub const DBI = struct { dbi: ?u32 = null };
-        pub const DatabaseOptions = struct {
+    pub const DatabaseOptions = struct {
         name: ?[*:0]const u8 = null,
         create: bool = true,
     };
@@ -45,10 +45,10 @@ pub const Transaction {
     pub fn abort(self: Transaction) void {}
 
     pub fn openDatabase(self: Transaction, options: DatabaseOptions) !u32
-    pub fn stat(self: Transaction, options: DBI) !Stat
-    pub fn get(self: Transaction, key: []const u8, options: DBI) !?[]const u8
-    pub fn set(self: Transaction, key: []const u8, value: []const u8, options: DBI) !void
-    pub fn delete(self: Transaction, key: []const u8, options: DBI) !void
+    pub fn stat(self: Transaction, dbi: DBI) !Stat
+    pub fn get(self: Transaction, dbi: DBI, key: []const u8) !?[]const u8
+    pub fn set(self: Transaction, dbi: DBI, key: []const u8, value: []const u8) !void
+    pub fn delete(self: Transaction, dbi: DBI, key: []const u8) !void
 };
 ```
 
@@ -58,10 +58,10 @@ pub const Transaction {
 pub const Cursor = struct {
     pub const Entry = struct { key: []const u8, value: []const u8 };
 
-    pub fn open(txn: Transaction, options: Transaction.DatabaseOptions) !Cursor {}
+    pub fn open(txn: Transaction, dbi: Transaction.DBI) !Cursor {}
     pub fn close(self: Cursor) void {}
     pub fn getTransaction(self: Cursor) Transaction {}
-    pub fn getDatabase(self: Cursor) Database {}
+    pub fn getDatabase(self: Cursor) Transaction.DBI {}
     pub fn getCurrentEntry(self: Cursor) !Entry {}
     pub fn getCurrentKey(self: Cursor) ![]const u8 {}
     pub fn getCurrentValue(self: Cursor) ![]const u8 {}

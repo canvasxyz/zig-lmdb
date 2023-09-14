@@ -7,7 +7,7 @@ const Stat = @import("stat.zig");
 
 const Environment = @This();
 
-pub const Options = struct {
+pub const EnvironmentOptions = struct {
     map_size: usize = 10485760,
     max_dbs: u32 = 0,
     mode: u16 = 0o664,
@@ -24,7 +24,7 @@ pub const Error = error{
 
 ptr: ?*c.MDB_env = null,
 
-pub fn open(path: [*:0]const u8, options: Options) !Environment {
+pub fn open(path: [*:0]const u8, options: EnvironmentOptions) !Environment {
     var env = Environment{};
 
     try switch (c.mdb_env_create(&env.ptr)) {
