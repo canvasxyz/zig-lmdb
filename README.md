@@ -4,6 +4,8 @@ Zig bindings for LMDB.
 
 ## API
 
+The three data structures are `Environment`, `Transaction`, and `Cursor`.
+
 ### `Environment`
 
 ```zig
@@ -23,9 +25,17 @@ pub fn stat(self: Environment) !Stat
 
 ```zig
 pub const Transaction {
-    pub const Options = struct {
-        read_only: bool = true,
+    pub const Mode = enum { ReadOnly, ReadWrite };
+
+    pub const TransactionOptions = struct {
+        mode: Mode,
         parent: ?Transaction = null,
+    };
+
+    pub const DBI = struct { dbi: ?u32 = null };
+        pub const DatabaseOptions = struct {
+        name: ?[*:0]const u8 = null,
+        create: bool = true,
     };
 
     pub fn open(env: Environment, options: Options) !Transaction {}
@@ -33,25 +43,12 @@ pub const Transaction {
     pub fn getEnvironment(self: Transaction) !Environment {}
     pub fn commit(self: Transaction) !void {}
     pub fn abort(self: Transaction) void {}
-};
-```
 
-### `Database`
-
-```zig
-pub const Database = struct {
-    pub const Options = struct {
-        name: ?[]const u8 = null,
-        create: bool = false,
-    };
-
-    pub fn open(txn: Transaction, options: Options) !Database {}
-    pub fn init(self: *Database, txn: Transaction, options: Options) !void
-    pub fn close(self: Database) void {}
-    pub fn stat(self: Database) !Stat {}
-    pub fn get(self: Database, key: []const u8) !?[]const u8 {}
-    pub fn set(self: Database, key: []const u8, value: []const u8) !void {}
-    pub fn delete(self: Database, key: []const u8) !void {}
+    pub fn openDatabase(self: Transaction, options: DatabaseOptions) !u32
+    pub fn stat(self: Transaction, options: DBI) !Stat
+    pub fn get(self: Transaction, key: []const u8, options: DBI) !?[]const u8
+    pub fn set(self: Transaction, key: []const u8, value: []const u8, options: DBI) !void
+    pub fn delete(self: Transaction, key: []const u8, options: DBI) !void
 };
 ```
 
@@ -61,8 +58,7 @@ pub const Database = struct {
 pub const Cursor = struct {
     pub const Entry = struct { key: []const u8, value: []const u8 };
 
-    pub fn open(db: Database) !Cursor {}
-    pub fn init(self: *Cursor, db: Database) !void
+    pub fn open(txn: Transaction, options: Transaction.DatabaseOptions) !Cursor {}
     pub fn close(self: Cursor) void {}
     pub fn getTransaction(self: Cursor) Transaction {}
     pub fn getDatabase(self: Cursor) Database {}

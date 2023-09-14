@@ -5,29 +5,23 @@ const hex = std.fmt.fmtSliceHexLower;
 const c = @import("c.zig");
 
 const Transaction = @import("transaction.zig");
-const Database = @import("database.zig");
 const Cursor = @This();
 
-txn: Transaction,
-ptr: ?*c.MDB_cursor,
+ptr: ?*c.MDB_cursor = null,
 
 pub const Entry = struct { key: []const u8, value: []const u8 };
 
-pub fn open(db: Database) !Cursor {
-    var cursor: Cursor = undefined;
-    try cursor.init(db);
-    return cursor;
-}
+pub fn open(txn: Transaction, options: Transaction.DBI) !Cursor {
+    const dbi = options.dbi orelse try txn.openDatabase(.{});
 
-pub fn init(self: *Cursor, db: Database) !void {
-    self.txn = db.txn;
-    self.ptr = null;
-
-    return switch (c.mdb_cursor_open(db.txn.ptr, db.dbi, &self.ptr)) {
+    var cursor = Cursor{};
+    try switch (c.mdb_cursor_open(txn.ptr, dbi, &cursor.ptr)) {
         0 => {},
         @intFromEnum(std.os.E.INVAL) => error.INVAL,
         else => error.LmdbCursorOpenError,
     };
+
+    return cursor;
 }
 
 pub fn close(self: Cursor) void {
@@ -35,12 +29,11 @@ pub fn close(self: Cursor) void {
 }
 
 pub fn getTransaction(self: Cursor) Transaction {
-    return self.txn;
+    return .{ .ptr = c.mdb_cursor_txn(self.ptr) };
 }
 
-pub fn getDatabase(self: Cursor) Database {
-    const dbi = c.mdb_cursor_dbi(self.ptr);
-    return Database{ .txn = self.txn, .dbi = dbi };
+pub fn getDatabase(self: Cursor) u32 {
+    return c.mdb_cursor_dbi(self.ptr);
 }
 
 pub fn getCurrentEntry(self: Cursor) !Entry {

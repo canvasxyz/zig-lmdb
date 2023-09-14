@@ -3,7 +3,6 @@ const hex = std.fmt.fmtSliceHexLower;
 
 const Environment = @import("environment.zig");
 const Transaction = @import("transaction.zig");
-const Database = @import("database.zig");
 const Cursor = @import("cursor.zig");
 
 const Options = struct {
@@ -20,27 +19,27 @@ pub fn compareEnvironments(env_a: Environment, env_b: Environment, options: Opti
     if (options.dbs) |dbs| {
         var sum: usize = 0;
         for (dbs) |name| {
-            const db_a = try Database.open(txn_a, .{ .name = name });
-            const db_b = try Database.open(txn_b, .{ .name = name });
-            sum += try compareDatabases(db_a, db_b, options);
+            const db_a = try txn_a.openDatabase(.{ .name = name });
+            const db_b = try txn_b.openDatabase(.{ .name = name });
+            sum += try compareDatabases(txn_a, db_a, txn_b, db_b, options);
         }
 
         return sum;
     } else {
-        const db_a = try Database.open(txn_a, .{});
-        const db_b = try Database.open(txn_b, .{});
-        return try compareDatabases(db_a, db_b, options);
+        const db_a = try txn_a.openDatabase(.{});
+        const db_b = try txn_b.openDatabase(.{});
+        return try compareDatabases(txn_a, db_a, txn_b, db_b, options);
     }
 }
 
-pub fn compareDatabases(db_a: Database, db_b: Database, options: Options) !usize {
+pub fn compareDatabases(txn_a: Transaction, db_a: u32, txn_b: Transaction, db_b: u32, options: Options) !usize {
     if (options.log) |log| try log.print("{s:-<80}\n", .{"START DIFF "});
 
     var differences: usize = 0;
 
-    const cursor_a = try Cursor.open(db_a);
+    const cursor_a = try Cursor.open(txn_a, .{ .database = db_a });
     defer cursor_a.close();
-    const cursor_b = try Cursor.open(db_b);
+    const cursor_b = try Cursor.open(txn_b, .{ .database = db_b });
     defer cursor_b.close();
 
     var key_a = try cursor_a.goToFirst();

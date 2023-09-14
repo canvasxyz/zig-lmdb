@@ -5,7 +5,6 @@ const expectEqualSlices = std.testing.expectEqualSlices;
 
 const Environment = @import("environment.zig");
 const Transaction = @import("transaction.zig");
-const Database = @import("database.zig");
 const Cursor = @import("cursor.zig");
 
 var buffer: [4096]u8 = undefined;
@@ -28,8 +27,8 @@ pub fn expectEqualKeys(actual: ?[]const u8, expected: ?[]const u8) !void {
     }
 }
 
-pub fn expectEqualEntries(db: Database, entries: []const [2][]const u8) !void {
-    const cursor = try Cursor.open(db);
+pub fn expectEqualEntries(txn: Transaction, database: ?u32, entries: []const [2][]const u8) !void {
+    const cursor = try Cursor.open(txn, .{ .database = database });
     defer cursor.close();
 
     var i: usize = 0;
@@ -57,12 +56,10 @@ test "expectEqualEntries" {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
 
-        const db = try Database.open(txn, .{});
-
-        try db.set("a", "foo");
-        try db.set("b", "bar");
-        try db.set("c", "baz");
-        try db.set("d", "qux");
+        try txn.set("a", "foo", .{});
+        try txn.set("b", "bar", .{});
+        try txn.set("c", "baz", .{});
+        try txn.set("d", "qux", .{});
         try txn.commit();
     }
 
@@ -70,9 +67,7 @@ test "expectEqualEntries" {
         const txn = try Transaction.open(env, .{ .mode = .ReadOnly });
         defer txn.abort();
 
-        const db = try Database.open(txn, .{});
-
-        try expectEqualEntries(db, &[_][2][]const u8{
+        try expectEqualEntries(txn, null, &[_][2][]const u8{
             .{ "a", "foo" },
             .{ "b", "bar" },
             .{ "c", "baz" },
