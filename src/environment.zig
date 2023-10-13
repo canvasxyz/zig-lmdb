@@ -14,6 +14,12 @@ pub const EnvironmentOptions = struct {
     mode: u16 = 0o664,
 };
 
+pub const EnvironmentInfo = struct {
+    map_size: usize,
+    max_readers: u32,
+    num_readers: u32,
+};
+
 ptr: ?*c.MDB_env = null,
 
 pub fn open(path: [*:0]const u8, options: EnvironmentOptions) !Environment {
@@ -45,10 +51,25 @@ pub fn stat(self: Environment) !Stat {
 
     return .{
         .psize = result.ms_psize,
-        .depth = result.ms_psize,
+        .depth = result.ms_depth,
         .branch_pages = result.ms_branch_pages,
         .leaf_pages = result.ms_leaf_pages,
         .overflow_pages = result.ms_overflow_pages,
         .entries = result.ms_entries,
     };
+}
+
+pub fn info(self: Environment) !EnvironmentInfo {
+    var result: c.MDB_envinfo = undefined;
+    try errors.throw(c.mdb_env_info(self.ptr, &result));
+
+    return .{
+        .map_size = result.me_mapsize,
+        .max_readers = result.me_maxreaders,
+        .num_readers = result.me_numreaders,
+    };
+}
+
+pub fn resize(self: Environment, size: usize) !void {
+    try errors.throw(c.mdb_env_set_mapsize(self.ptr, size));
 }
