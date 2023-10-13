@@ -8,6 +8,7 @@ const Transaction = @import("transaction.zig");
 const Cursor = @import("cursor.zig");
 
 const compare = @import("compare.zig");
+const errors = @import("errors.zig");
 const utils = @import("utils.zig");
 
 const allocator = std.heap.c_allocator;
@@ -278,4 +279,47 @@ test "parent transactions" {
     }
 
     try expectEqual(@as(?[]const u8, null), try parent.get(null, "c"));
+}
+
+test "resize map" {
+    var tmp = std.testing.tmpDir(.{});
+    defer tmp.cleanup();
+
+    var map_size: usize = 64 * 4096;
+
+    const path = try utils.resolvePath(tmp.dir, ".");
+    const env = try Environment.open(path, .{
+        .map_size = map_size,
+    });
+
+    defer env.close();
+
+    var i: u32 = 0;
+    while (i < 10000) : (i += 1) {
+        setEntry(env, i) catch |err| {
+            if (err == errors.Error.MDB_MAP_FULL) {
+                map_size = 2 * map_size;
+                try env.resize(map_size);
+                try setEntry(env, i);
+            } else {
+                return err;
+            }
+        };
+    }
+
+    const stat = try env.stat();
+    try expectEqual(@as(usize, 10000), stat.entries);
+}
+
+fn setEntry(env: Environment, i: u32) !void {
+    var key: [4]u8 = undefined;
+    var value: [32]u8 = undefined;
+
+    const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
+
+    std.mem.writeIntBig(u32, &key, i);
+    std.crypto.hash.Blake3.hash(&key, &value, .{});
+    try txn.set(null, &key, &value);
+
+    try txn.commit();
 }
