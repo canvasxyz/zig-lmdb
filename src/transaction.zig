@@ -74,11 +74,11 @@ pub fn stat(self: Transaction, dbi: ?DBI) !Stat {
     const database = dbi orelse try self.openDatabase(.{});
 
     var result: c.MDB_stat = undefined;
-    try errors.throw(c.mdb_stat(self.txn.ptr, database, &result));
+    try errors.throw(c.mdb_stat(self.ptr, database, &result));
 
     return .{
         .psize = result.ms_psize,
-        .depth = result.ms_psize,
+        .depth = result.ms_depth,
         .branch_pages = result.ms_branch_pages,
         .leaf_pages = result.ms_leaf_pages,
         .overflow_pages = result.ms_overflow_pages,
