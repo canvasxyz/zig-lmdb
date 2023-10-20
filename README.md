@@ -1,6 +1,6 @@
 # zig-lmdb
 
-Zig bindings for LMDB.
+Zig bindings for LMDB. Built and tested with zig version `0.11.0`.
 
 ## API
 
