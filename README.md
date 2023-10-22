@@ -6,6 +6,27 @@ Zig bindings for LMDB. Built and tested with Zig version `0.11.0`.
 
 The three data structures are `Environment`, `Transaction`, and `Cursor`.
 
+```zig
+const lmdb = @import("zig-lmdb")
+
+{
+    const env = try lmdb.Environment.open("/path/to/directory", .{});
+    defer env.close();
+
+    {
+        const txn = try lmdb.Transaction.open(env, .{ .mode = .ReadWrite });
+        errdefer txn.abort();
+
+        try txn.set(null, "a", "foo");
+        try txn.set(null, "b", "bar");
+        try txn.set(null, "c", "baz");
+        try txn.delete(null, "b");
+
+        try txn.commit();
+    }
+}
+```
+
 ### `Environment`
 
 ```zig
@@ -15,65 +36,82 @@ pub const EnvironmentOptions = struct {
     mode: u16 = 0o664,
 };
 
+pub const EnvironmentInfo = struct {
+    map_size: usize,
+    max_readers: u32,
+    num_readers: u32,
+};
+
 pub fn open(path: [*:0]const u8, options: EnvironmentOptions) !Environment
 pub fn close(self: Environment) void
 pub fn flush(self: Environment) !void
 pub fn stat(self: Environment) !Stat
+pub fn info(self: Environment) !EnvironmentInfo
+pub fn resize(self: Environment, size: usize) !void // mdb_env_set_mapsize
 ```
 
 ### `Transaction`
 
 ```zig
-pub const Transaction {
-    pub const Mode = enum { ReadOnly, ReadWrite };
-    pub const DBI = ?u32;
+pub const Mode = enum { ReadOnly, ReadWrite };
 
-    pub const TransactionOptions = struct {
-        mode: Mode,
-        parent: ?Transaction = null,
-    };
-
-    pub const DatabaseOptions = struct {
-        name: ?[*:0]const u8 = null,
-        create: bool = true,
-    };
-
-    pub fn open(env: Environment, options: Options) !Transaction {}
-    pub fn init(self: *Transaction, env: Environment, options: Options) !void
-    pub fn getEnvironment(self: Transaction) !Environment {}
-    pub fn commit(self: Transaction) !void {}
-    pub fn abort(self: Transaction) void {}
-
-    pub fn openDatabase(self: Transaction, options: DatabaseOptions) !u32
-    pub fn stat(self: Transaction, dbi: DBI) !Stat
-    pub fn get(self: Transaction, dbi: DBI, key: []const u8) !?[]const u8
-    pub fn set(self: Transaction, dbi: DBI, key: []const u8, value: []const u8) !void
-    pub fn delete(self: Transaction, dbi: DBI, key: []const u8) !void
+pub const TransactionOptions = struct {
+    mode: Mode,
+    parent: ?Transaction = null,
 };
+
+pub const DBI = u32;
+
+pub const DatabaseOptions = struct {
+    name: ?[*:0]const u8 = null,
+    create: bool = true,
+};
+
+pub fn open(env: Environment, options: Options) !Transaction
+pub fn init(self: *Transaction, env: Environment, options: Options) !void
+pub fn commit(self: Transaction) !void
+pub fn abort(self: Transaction) void
+
+pub fn openDatabase(self: Transaction, options: DatabaseOptions) !DBI
+pub fn getEnvironment(self: Transaction) !Environment {}
+pub fn stat(self: Transaction, dbi: ?DBI) !Stat
+
+pub fn get(self: Transaction, dbi: ?DBI, key: []const u8) !?[]const u8
+pub fn set(self: Transaction, dbi: ?DBI, key: []const u8, value: []const u8) !void
+pub fn delete(self: Transaction, dbi: ?DBI, key: []const u8) !void
 ```
 
 ### `Cursor`
 
 ```zig
-pub const Cursor = struct {
-    pub const Entry = struct { key: []const u8, value: []const u8 };
+pub const Entry = struct { key: []const u8, value: []const u8 };
 
-    pub fn open(txn: Transaction, dbi: Transaction.DBI) !Cursor {}
-    pub fn close(self: Cursor) void {}
-    pub fn getTransaction(self: Cursor) Transaction {}
-    pub fn getDatabase(self: Cursor) Transaction.DBI {}
-    pub fn getCurrentEntry(self: Cursor) !Entry {}
-    pub fn getCurrentKey(self: Cursor) ![]const u8 {}
-    pub fn getCurrentValue(self: Cursor) ![]const u8 {}
-    pub fn setCurrentValue(self: Cursor, value: []const u8) !void {}
-    pub fn deleteCurrentKey(self: Cursor) !void {}
-    pub fn goToNext(self: Cursor) !?[]const u8 {}
-    pub fn goToPrevious(self: Cursor) !?[]const u8 {}
-    pub fn goToLast(self: Cursor) !?[]const u8 {}
-    pub fn goToFirst(self: Cursor) !?[]const u8 {}
-    pub fn goToKey(self: Cursor, key: []const u8) !void {}
-    pub fn seek(self: Cursor, key: []const u8) !?[]const u8 {}
-};
+pub fn open(txn: Transaction, dbi: ?Transaction.DBI) !Cursor
+pub fn close(self: Cursor) void
+pub fn getTransaction(self: Cursor) Transaction
+pub fn getDatabase(self: Cursor) Transaction.DBI
+pub fn getCurrentEntry(self: Cursor) !Entry
+pub fn getCurrentKey(self: Cursor) ![]const u8
+pub fn getCurrentValue(self: Cursor) ![]const u8
+pub fn setCurrentValue(self: Cursor, value: []const u8) !void
+pub fn deleteCurrentKey(self: Cursor) !void
+pub fn goToNext(self: Cursor) !?[]const u8
+pub fn goToPrevious(self: Cursor) !?[]const u8
+pub fn goToLast(self: Cursor) !?[]const u8
+pub fn goToFirst(self: Cursor) !?[]const u8
+pub fn goToKey(self: Cursor, key: []const u8) !void
+pub fn seek(self: Cursor, key: []const u8) !?[]const u8
+```
+
+### `Stat`
+
+```zig
+psize: u32,
+depth: u32,
+branch_pages: usize,
+leaf_pages: usize,
+overflow_pages: usize,
+entries: usize,
 ```
 
 ## Benchmarks
