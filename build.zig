@@ -1,5 +1,5 @@
 const std = @import("std");
-const FileSource = std.build.FileSource;
+const LazyPath = std.build.LazyPath;
 
 const lmdb_source_files = [_][]const u8{
     "libs/openldap/libraries/liblmdb/mdb.c",
@@ -20,10 +20,10 @@ pub fn build(b: *std.build.Builder) void {
 
     // b.installArtifact(openldap);
 
-    const lmdb = b.addModule("lmdb", .{ .source_file = FileSource.relative("src/lib.zig") });
+    const lmdb = b.addModule("lmdb", .{ .source_file = LazyPath.relative("src/lib.zig") });
 
     // Tests
-    const tests = b.addTest(.{ .root_source_file = FileSource.relative("src/test.zig") });
+    const tests = b.addTest(.{ .root_source_file = LazyPath.relative("src/test.zig") });
     tests.addIncludePath(.{ .path = "./libs/openldap/libraries/liblmdb" });
     tests.addCSourceFiles(&lmdb_source_files, &.{});
     const run_tests = b.addRunArtifact(tests);
@@ -33,7 +33,7 @@ pub fn build(b: *std.build.Builder) void {
     // Benchmarks
     const bench = b.addExecutable(.{
         .name = "lmdb-benchmark",
-        .root_source_file = FileSource.relative("benchmarks/main.zig"),
+        .root_source_file = LazyPath.relative("benchmarks/main.zig"),
         .optimize = .ReleaseFast,
     });
 

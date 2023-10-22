@@ -16,16 +16,16 @@ pub fn main() !void {
     const log = std.io.getStdOut().writer();
 
     _ = try log.write("## Benchmarks\n\n");
-
-    try Context.exec("iota-1000", 1_000, log, .{});
+    try Context.exec("1k entries", 1_000, log, .{});
     _ = try log.write("\n");
-    try Context.exec("iota-50000", 50_000, log, .{});
+    try Context.exec("50k entries", 50_000, log, .{});
     _ = try log.write("\n");
-    try Context.exec("iota-1000000", 1_000_000, log, .{ .map_size = 2 * 1024 * 1024 * 1024 });
+    try Context.exec("1m entries", 1_000_000, log, .{ .map_size = 2 * 1024 * 1024 * 1024 });
 }
 
 const Context = struct {
     env: lmdb.Environment,
+    name: []const u8,
     size: u32,
     log: std.fs.File.Writer,
 
@@ -33,12 +33,12 @@ const Context = struct {
         var tmp = std.testing.tmpDir(.{});
         defer tmp.cleanup();
 
-        try tmp.dir.makeDir(name);
-        const path = try lmdb.utils.resolvePath(tmp.dir, name);
+        try tmp.dir.makeDir("data");
+        const path = try lmdb.utils.resolvePath(tmp.dir, "data");
         const env = try lmdb.Environment.open(path, options);
         defer env.close();
 
-        const ctx = Context{ .env = env, .size = size, .log = log };
+        const ctx = Context{ .env = env, .name = name, .size = size, .log = log };
         try ctx.initialize();
         try ctx.printHeader();
 
@@ -47,8 +47,8 @@ const Context = struct {
         try iterateEntries(ctx, 100);
         try ctx.setRandomEntries("set random 1 entry", 100, 1);
         try ctx.setRandomEntries("set random 100 entries", 100, 100);
-        try ctx.setRandomEntries("set random 1000 entries", 10, 1000);
-        try ctx.setRandomEntries("set random 50000 entries", 10, 50000);
+        try ctx.setRandomEntries("set random 1k entries", 10, 1_000);
+        try ctx.setRandomEntries("set random 50k entries", 10, 50_000);
     }
 
     fn initialize(ctx: Context) !void {
@@ -72,7 +72,7 @@ const Context = struct {
     }
 
     fn printHeader(ctx: Context) !void {
-        try ctx.log.print("### DB size: {d} entries\n\n", .{ctx.size});
+        try ctx.log.print("### {s}\n\n", .{ctx.name});
         try ctx.log.print(
             "| {s: <30} | {s: >10} | {s: >10} | {s: >10} | {s: >10} | {s: >8} | {s: >10} |\n",
             .{ "", "iterations", "min (ms)", "max (ms)", "avg (ms)", "std", "ops / s" },
