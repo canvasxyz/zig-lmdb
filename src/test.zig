@@ -18,7 +18,7 @@ test "basic operations" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const env = try Environment.open(tmp.dir, .{});
+    const env = try Environment.openDir(tmp.dir, .{});
     defer env.close();
 
     {
@@ -61,7 +61,7 @@ test "multiple named databases" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const env = try Environment.open(tmp.dir, .{ .max_dbs = 2 });
+    const env = try Environment.openDir(tmp.dir, .{ .max_dbs = 2 });
     defer env.close();
 
     {
@@ -113,7 +113,7 @@ test "compareEntries" {
     var dir_a = try tmp.dir.openDir("a", .{});
     defer dir_a.close();
 
-    const env_a = try Environment.open(dir_a, .{});
+    const env_a = try Environment.openDir(dir_a, .{});
     defer env_a.close();
 
     {
@@ -131,7 +131,7 @@ test "compareEntries" {
     var dir_b = try tmp.dir.openDir("b", .{});
     defer dir_b.close();
 
-    const env_b = try Environment.open(dir_b, .{});
+    const env_b = try Environment.openDir(dir_b, .{});
     defer env_b.close();
 
     {
@@ -167,7 +167,7 @@ test "set empty value" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const env = try Environment.open(tmp.dir, .{});
+    const env = try Environment.openDir(tmp.dir, .{});
     defer env.close();
 
     const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
@@ -188,7 +188,7 @@ test "stat" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const env = try Environment.open(tmp.dir, .{});
+    const env = try Environment.openDir(tmp.dir, .{});
     defer env.close();
 
     {
@@ -229,7 +229,7 @@ test "Cursor.deleteCurrentKey()" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const env = try Environment.open(tmp.dir, .{});
+    const env = try Environment.openDir(tmp.dir, .{});
     defer env.close();
 
     {
@@ -262,7 +262,7 @@ test "seek" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const env = try Environment.open(tmp.dir, .{});
+    const env = try Environment.openDir(tmp.dir, .{});
     defer env.close();
 
     {
@@ -287,7 +287,7 @@ test "parent transactions" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const env = try Environment.open(tmp.dir, .{});
+    const env = try Environment.openDir(tmp.dir, .{});
     defer env.close();
 
     const parent = try Transaction.open(env, .{ .mode = .ReadWrite });
@@ -327,7 +327,7 @@ test "resize map" {
 
     var map_size: usize = 64 * 4096;
 
-    const env = try Environment.open(tmp.dir, .{ .map_size = map_size });
+    const env = try Environment.openDir(tmp.dir, .{ .map_size = map_size });
     defer env.close();
 
     var i: u32 = 0;

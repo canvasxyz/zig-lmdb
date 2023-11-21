@@ -41,7 +41,7 @@ test "expectEqualEntries" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const env = try Environment.open(tmp.dir, .{});
+    const env = try Environment.openDir(tmp.dir, .{});
     defer env.close();
 
     {

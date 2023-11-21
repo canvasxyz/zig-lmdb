@@ -1,6 +1,4 @@
 const std = @import("std");
-const hex = std.fmt.fmtSliceHexLower;
-
 const c = @import("c.zig");
 const Stat = @import("stat.zig");
 const errors = @import("errors.zig");
@@ -22,7 +20,18 @@ pub const EnvironmentInfo = struct {
 
 ptr: ?*c.MDB_env = null,
 
-pub fn open(dir: std.fs.Dir, options: EnvironmentOptions) !Environment {
+pub fn open(path: []const u8, options: EnvironmentOptions) !Environment {
+    if (utils.path_buffer.len <= path.len) {
+        return error.PATH_SIZE;
+    }
+
+    @memcpy(utils.path_buffer[0..path.len], path);
+    utils.path_buffer[path.len] = 0;
+
+    return try openZ(utils.path_buffer[0..path.len :0], options);
+}
+
+pub fn openZ(path: [:0]const u8, options: EnvironmentOptions) !Environment {
     var env = Environment{};
 
     try errors.throw(c.mdb_env_create(&env.ptr));
@@ -33,11 +42,15 @@ pub fn open(dir: std.fs.Dir, options: EnvironmentOptions) !Environment {
 
     errdefer c.mdb_env_close(env.ptr);
 
-    const path = try std.os.getFdPath(dir.fd, &utils.path_buffer);
-    utils.path_buffer[path.len] = 0;
-    try errors.throw(c.mdb_env_open(env.ptr, @ptrCast(path.ptr), flags, options.mode));
+    try errors.throw(c.mdb_env_open(env.ptr, path, flags, options.mode));
 
     return env;
+}
+
+pub fn openDir(dir: std.fs.Dir, options: EnvironmentOptions) !Environment {
+    const path = try dir.realpath(".", &utils.path_buffer);
+    utils.path_buffer[path.len] = 0;
+    return try openZ(utils.path_buffer[0..path.len :0], options);
 }
 
 pub fn close(self: Environment) void {
