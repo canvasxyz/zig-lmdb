@@ -22,42 +22,46 @@ To use named databases, make sure to open the environment with a non-zero `Envir
 const lmdb = @import("lmdb");
 
 pub fn main() !void {
-    const env = try lmdb.Environment.open("db", .{ .max_dbs = 4 });
+    var dir = try std.fs.cwd().openDir("db", .{});
+    defer dir.close();
+
+    const env = try lmdb.Environment.open(dir, .{ .max_dbs = 2 });
     defer env.close();
 
-    {
-        const txn = try lmdb.Transaction.open(env, .{ .mode = .ReadWrite });
-        errdefer txn.abort();
+    const txn = try lmdb.Transaction.open(env, .{ .mode = .ReadWrite });
+    errdefer txn.abort();
 
-        const widgets = try txn.openDatabase(.{ .name = "widgets" });
-        try txn.set(widgets, "a", "foo");
+    const widgets = try txn.openDatabase("widgets", .{});
+    try txn.set(widgets, "a", "foo");
 
-        const gadgets = try txn.openDatabase(.{ .name = "gadgets" });
-        try txn.set(gadgets, "b", "bar");
+    const gadgets = try txn.openDatabase("gadgets", .{});
+    try txn.set(gadgets, "b", "bar");
 
-        try txn.commit();
-    }
+    try txn.commit();
 }
 ```
 
-To use a single unnamed database, just use `null` as the database ID.
+To use a single unnamed database, use `null` as the database name.
 
 ```zig
 const lmdb = @import("lmdb");
 
 pub fn main() !void {
-    const env = try lmdb.Environment.open("db", .{ .max_dbs = 4 });
+    var dir = try std.fs.cwd().openDir("db", .{});
+    defer dir.close();
+
+    const env = try lmdb.Environment.open(dir, .{});
     defer env.close();
 
-    {
-        const txn = try lmdb.Transaction.open(env, .{ .mode = .ReadWrite });
-        errdefer txn.abort();
+    const txn = try lmdb.Transaction.open(env, .{ .mode = .ReadWrite });
+    errdefer txn.abort();
 
-        try txn.set(null, "a", "foo");
-        try txn.set(null, "b", "bar");
+    const dbi = try txn.openDatabase(null, .{});
 
-        try txn.commit();
-    }
+    try txn.set(dbi, "a", "foo");
+    try txn.set(dbi, "b", "bar");
+
+    try txn.commit();
 }
 ```
 
@@ -79,7 +83,7 @@ pub const Environment = struct {
         num_readers: u32,
     };
 
-    pub fn open(path: [*:0]const u8, options: EnvironmentOptions) !Environment
+    pub fn open(dir: std.fs.Dir, options: EnvironmentOptions) !Environment
     pub fn close(self: Environment) void
 
     pub fn flush(self: Environment) !void
@@ -110,16 +114,19 @@ pub const Transaction = struct {
 
     pub fn open(env: Environment, options: Options) !Transaction
     pub fn init(self: *Transaction, env: Environment, options: Options) !void
+
     pub fn commit(self: Transaction) !void
     pub fn abort(self: Transaction) void
 
-    pub fn openDatabase(self: Transaction, options: DatabaseOptions) !DBI
-    pub fn getEnvironment(self: Transaction) !Environment {}
-    pub fn stat(self: Transaction, dbi: ?DBI) !Stat
+    pub fn openDatabase(self: Transaction, name: ?[]const u8, options: DatabaseOptions) !DBI
+    pub fn openDatabaseZ(self: Transaction, name: ?[*:0]u8, options: DatabaseOptions) !DBI
 
-    pub fn get(self: Transaction, dbi: ?DBI, key: []const u8) !?[]const u8
-    pub fn set(self: Transaction, dbi: ?DBI, key: []const u8, value: []const u8) !void
-    pub fn delete(self: Transaction, dbi: ?DBI, key: []const u8) !void
+    pub fn getEnvironment(self: Transaction) !Environment {}
+    pub fn stat(self: Transaction, dbi: DBI) !Stat
+
+    pub fn get(self: Transaction, dbi: DBI, key: []const u8) !?[]const u8
+    pub fn set(self: Transaction, dbi: DBI, key: []const u8, value: []const u8) !void
+    pub fn delete(self: Transaction, dbi: DBI, key: []const u8) !void
 };
 ```
 
@@ -129,7 +136,7 @@ pub const Transaction = struct {
 pub const Cursor = struct {
     pub const Entry = struct { key: []const u8, value: []const u8 };
 
-    pub fn open(txn: Transaction, dbi: ?Transaction.DBI) !Cursor
+    pub fn open(txn: Transaction, dbi: Transaction.DBI) !Cursor
     pub fn close(self: Cursor) void
 
     pub fn getTransaction(self: Cursor) Transaction
@@ -152,6 +159,8 @@ pub const Cursor = struct {
 };
 ```
 
+> ⚠️ Always close cursors **before** committing or aborting the transaction.
+
 ### `Stat`
 
 ```zig
@@ -167,40 +176,42 @@ pub const Stat = struct {
 
 ## Benchmarks
 
-Run the benchmarks with `zig build bench`.
+```
+zig build bench
+```
 
 ### 1k entries
 
 |                          | iterations | min (ms) | max (ms) | avg (ms) |    std |  ops / s |
 | :----------------------- | ---------: | -------: | -------: | -------: | -----: | -------: |
-| get random 1 entry       |        100 |   0.0015 |   0.0168 |   0.0018 | 0.0016 |   543100 |
-| get random 100 entries   |        100 |   0.0232 |   0.0287 |   0.0260 | 0.0018 |  3848182 |
-| iterate over all entries |        100 |   0.0241 |   0.0251 |   0.0242 | 0.0001 | 41301049 |
-| set random 1 entry       |        100 |   0.0798 |   0.2491 |   0.1067 | 0.0281 |     9376 |
-| set random 100 entries   |        100 |   0.1073 |   0.2113 |   0.1401 | 0.0185 |   713967 |
-| set random 1k entries    |         10 |   0.4005 |   0.4723 |   0.4230 | 0.0200 |  2364137 |
-| set random 50k entries   |         10 |  15.7136 |  16.2638 |  15.9125 | 0.2038 |  3142188 |
+| get random 1 entry       |        100 |   0.0009 |   0.0142 |   0.0012 | 0.0013 |   859298 |
+| get random 100 entries   |        100 |   0.0164 |   0.0178 |   0.0170 | 0.0002 |  5865959 |
+| iterate over all entries |        100 |   0.0173 |   0.0181 |   0.0173 | 0.0001 | 57723023 |
+| set random 1 entry       |        100 |   0.0613 |   0.1613 |   0.0826 | 0.0181 |    12109 |
+| set random 100 entries   |        100 |   0.0930 |   0.4078 |   0.1249 | 0.0327 |   800633 |
+| set random 1k entries    |         10 |   0.4011 |   0.4233 |   0.4124 | 0.0077 |  2424709 |
+| set random 50k entries   |         10 |  15.8565 |  16.9226 |  16.1385 | 0.3964 |  3098176 |
 
 ### 50k entries
 
 |                          | iterations | min (ms) | max (ms) | avg (ms) |    std |  ops / s |
 | :----------------------- | ---------: | -------: | -------: | -------: | -----: | -------: |
-| get random 1 entry       |        100 |   0.0008 |   0.0083 |   0.0016 | 0.0008 |   610366 |
-| get random 100 entries   |        100 |   0.0237 |   0.0552 |   0.0278 | 0.0046 |  3593512 |
-| iterate over all entries |        100 |   0.6061 |   0.7458 |   0.6231 | 0.0257 | 80248291 |
-| set random 1 entry       |        100 |   0.0547 |   0.6264 |   0.0766 | 0.0770 |    13059 |
-| set random 100 entries   |        100 |   0.3853 |   0.6939 |   0.4729 | 0.0530 |   211455 |
-| set random 1k entries    |         10 |   0.9270 |   1.0725 |   0.9918 | 0.0452 |  1008234 |
-| set random 50k entries   |         10 |  22.5148 |  24.3988 |  22.8831 | 0.5661 |  2185021 |
+| get random 1 entry       |        100 |   0.0008 |   0.0135 |   0.0017 | 0.0013 |   582686 |
+| get random 100 entries   |        100 |   0.0236 |   0.0561 |   0.0282 | 0.0058 |  3546626 |
+| iterate over all entries |        100 |   0.6060 |   0.6867 |   0.6203 | 0.0175 | 80607307 |
+| set random 1 entry       |        100 |   0.0553 |   0.6738 |   0.0759 | 0.0661 |    13170 |
+| set random 100 entries   |        100 |   0.3644 |   0.5885 |   0.4624 | 0.0404 |   216278 |
+| set random 1k entries    |         10 |   0.9273 |   1.3168 |   1.0381 | 0.1162 |   963267 |
+| set random 50k entries   |         10 |  23.0990 |  25.0138 |  23.5197 | 0.6563 |  2125879 |
 
 ### 1m entries
 
 |                          | iterations | min (ms) | max (ms) | avg (ms) |    std |  ops / s |
 | :----------------------- | ---------: | -------: | -------: | -------: | -----: | -------: |
-| get random 1 entry       |        100 |   0.0010 |   0.0212 |   0.0026 | 0.0021 |   382834 |
-| get random 100 entries   |        100 |   0.0558 |   0.1683 |   0.0731 | 0.0195 |  1367335 |
-| iterate over all entries |        100 |  12.2588 |  13.6815 |  12.4136 | 0.2387 | 80556698 |
-| set random 1 entry       |        100 |   0.0676 |   0.7070 |   0.0930 | 0.0719 |    10758 |
-| set random 100 entries   |        100 |   0.5910 |   3.2007 |   2.3102 | 0.3127 |    43287 |
-| set random 1k entries    |         10 |   7.6770 |  14.2947 |  12.6750 | 2.5024 |    78895 |
-| set random 50k entries   |         10 |  51.5173 |  61.5861 |  54.2918 | 2.9450 |   920950 |
+| get random 1 entry       |        100 |   0.0010 |   0.0288 |   0.0028 | 0.0028 |   360359 |
+| get random 100 entries   |        100 |   0.0498 |   0.1970 |   0.0746 | 0.0314 |  1339794 |
+| iterate over all entries |        100 |  12.2684 |  13.0028 |  12.3550 | 0.1304 | 80939213 |
+| set random 1 entry       |        100 |   0.0630 |   0.7330 |   0.0827 | 0.0683 |    12098 |
+| set random 100 entries   |        100 |   0.6055 |   3.5569 |   2.2590 | 0.3394 |    44267 |
+| set random 1k entries    |         10 |   7.2128 |  17.8363 |  13.0217 | 3.1923 |    76795 |
+| set random 50k entries   |         10 |  53.1443 |  62.6031 |  56.2486 | 2.6658 |   888911 |

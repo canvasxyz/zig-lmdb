@@ -7,13 +7,7 @@ const Environment = @import("environment.zig");
 const Transaction = @import("transaction.zig");
 const Cursor = @import("cursor.zig");
 
-var buffer: [4096]u8 = undefined;
-
-pub fn resolvePath(dir: std.fs.Dir, name: []const u8) ![*:0]const u8 {
-    const path = try dir.realpath(name, &buffer);
-    buffer[path.len] = 0;
-    return @as([*:0]const u8, @ptrCast(buffer[0..path.len]));
-}
+pub var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
 
 pub fn expectEqualKeys(actual: ?[]const u8, expected: ?[]const u8) !void {
     if (actual) |actual_bytes| {
@@ -27,8 +21,8 @@ pub fn expectEqualKeys(actual: ?[]const u8, expected: ?[]const u8) !void {
     }
 }
 
-pub fn expectEqualEntries(txn: Transaction, db: ?u32, entries: []const [2][]const u8) !void {
-    const cursor = try Cursor.open(txn, db);
+pub fn expectEqualEntries(txn: Transaction, dbi: Transaction.DBI, entries: []const [2][]const u8) !void {
+    const cursor = try Cursor.open(txn, dbi);
     defer cursor.close();
 
     var i: usize = 0;
@@ -47,19 +41,19 @@ test "expectEqualEntries" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try resolvePath(tmp.dir, ".");
-
-    const env = try Environment.open(path, .{});
+    const env = try Environment.open(tmp.dir, .{});
     defer env.close();
 
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
 
-        try txn.set(null, "a", "foo");
-        try txn.set(null, "b", "bar");
-        try txn.set(null, "c", "baz");
-        try txn.set(null, "d", "qux");
+        const dbi = try txn.openDatabase(null, .{});
+
+        try txn.set(dbi, "a", "foo");
+        try txn.set(dbi, "b", "bar");
+        try txn.set(dbi, "c", "baz");
+        try txn.set(dbi, "d", "qux");
         try txn.commit();
     }
 
@@ -67,7 +61,9 @@ test "expectEqualEntries" {
         const txn = try Transaction.open(env, .{ .mode = .ReadOnly });
         defer txn.abort();
 
-        try expectEqualEntries(txn, null, &[_][2][]const u8{
+        const dbi = try txn.openDatabase(null, .{});
+
+        try expectEqualEntries(txn, dbi, &[_][2][]const u8{
             .{ "a", "foo" },
             .{ "b", "bar" },
             .{ "c", "baz" },

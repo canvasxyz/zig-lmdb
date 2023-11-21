@@ -11,12 +11,9 @@ ptr: ?*c.MDB_cursor = null,
 
 pub const Entry = struct { key: []const u8, value: []const u8 };
 
-pub fn open(txn: Transaction, dbi: ?Transaction.DBI) !Cursor {
-    const database = dbi orelse try txn.openDatabase(.{});
-
+pub fn open(txn: Transaction, dbi: Transaction.DBI) !Cursor {
     var cursor = Cursor{};
-    try errors.throw(c.mdb_cursor_open(txn.ptr, database, &cursor.ptr));
-
+    try errors.throw(c.mdb_cursor_open(txn.ptr, dbi, &cursor.ptr));
     return cursor;
 }
 

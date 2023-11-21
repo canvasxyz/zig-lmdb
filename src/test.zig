@@ -11,37 +11,46 @@ const compare = @import("compare.zig");
 const errors = @import("errors.zig");
 const utils = @import("utils.zig");
 
-const allocator = std.heap.c_allocator;
+var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+var allocator = gpa.allocator();
 
 test "basic operations" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try utils.resolvePath(tmp.dir, ".");
-    const env = try Environment.open(path, .{});
+    const env = try Environment.open(tmp.dir, .{});
     defer env.close();
 
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
-        try txn.set(null, "x", "foo");
-        try txn.set(null, "y", "bar");
-        try txn.set(null, "z", "baz");
+
+        const dbi = try txn.openDatabase(null, .{});
+
+        try txn.set(dbi, "x", "foo");
+        try txn.set(dbi, "y", "bar");
+        try txn.set(dbi, "z", "baz");
         try txn.commit();
     }
 
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
-        try txn.delete(null, "y");
-        try txn.set(null, "x", "FOO");
+
+        const dbi = try txn.openDatabase(null, .{});
+
+        try txn.delete(dbi, "y");
+        try txn.set(dbi, "x", "FOO");
         try txn.commit();
     }
 
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadOnly });
         defer txn.abort();
-        try utils.expectEqualEntries(txn, null, &.{
+
+        const dbi = try txn.openDatabase(null, .{});
+
+        try utils.expectEqualEntries(txn, dbi, &.{
             .{ "x", "FOO" },
             .{ "z", "baz" },
         });
@@ -52,14 +61,15 @@ test "multiple named databases" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try utils.resolvePath(tmp.dir, ".");
-    const env = try Environment.open(path, .{ .max_dbs = 2 });
+    const env = try Environment.open(tmp.dir, .{ .max_dbs = 2 });
     defer env.close();
 
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
-        const dbi = try txn.openDatabase(.{ .name = "a" });
+
+        const dbi = try txn.openDatabase("a", .{});
+
         try txn.set(dbi, "x", "foo");
         try txn.commit();
     }
@@ -67,7 +77,9 @@ test "multiple named databases" {
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
-        const dbi = try txn.openDatabase(.{ .name = "b" });
+
+        const dbi = try txn.openDatabase("b", .{});
+
         try txn.set(dbi, "x", "bar");
         try txn.commit();
     }
@@ -75,14 +87,18 @@ test "multiple named databases" {
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadOnly });
         defer txn.abort();
-        const dbi = try txn.openDatabase(.{ .name = "a" });
+
+        const dbi = try txn.openDatabase("a", .{});
+
         try utils.expectEqualKeys(try txn.get(dbi, "x"), "foo");
     }
 
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadOnly });
         defer txn.abort();
-        const dbi = try txn.openDatabase(.{ .name = "b" });
+
+        const dbi = try txn.openDatabase("b", .{});
+
         try utils.expectEqualKeys(try txn.get(dbi, "x"), "bar");
     }
 }
@@ -94,60 +110,74 @@ test "compareEntries" {
     try tmp.dir.makeDir("a");
     try tmp.dir.makeDir("b");
 
-    const path_a = try utils.resolvePath(tmp.dir, "a");
-    const env_a = try Environment.open(path_a, .{});
+    var dir_a = try tmp.dir.openDir("a", .{});
+    defer dir_a.close();
+
+    const env_a = try Environment.open(dir_a, .{});
     defer env_a.close();
 
     {
         const txn = try Transaction.open(env_a, .{ .mode = .ReadWrite });
         errdefer txn.abort();
-        try txn.set(null, "x", "foo");
-        try txn.set(null, "y", "bar");
-        try txn.set(null, "z", "baz");
+
+        const dbi = try txn.openDatabase(null, .{});
+
+        try txn.set(dbi, "x", "foo");
+        try txn.set(dbi, "y", "bar");
+        try txn.set(dbi, "z", "baz");
         try txn.commit();
     }
 
-    const path_b = try utils.resolvePath(tmp.dir, "b");
-    const env_b = try Environment.open(path_b, .{});
+    var dir_b = try tmp.dir.openDir("b", .{});
+    defer dir_b.close();
+
+    const env_b = try Environment.open(dir_b, .{});
     defer env_b.close();
 
     {
         const txn = try Transaction.open(env_b, .{ .mode = .ReadWrite });
         errdefer txn.abort();
-        try txn.set(null, "y", "bar");
-        try txn.set(null, "z", "qux");
+
+        const dbi = try txn.openDatabase(null, .{});
+
+        try txn.set(dbi, "y", "bar");
+        try txn.set(dbi, "z", "qux");
         try txn.commit();
     }
 
-    try expectEqual(try compare.compareEnvironments(env_a, env_b, .{}), 2);
-    try expectEqual(try compare.compareEnvironments(env_b, env_a, .{}), 2);
+    try expectEqual(try compare.compareEnvironments(env_a, env_b, null, .{}), 2);
+    try expectEqual(try compare.compareEnvironments(env_b, env_a, null, .{}), 2);
 
     {
         const txn = try Transaction.open(env_b, .{ .mode = .ReadWrite });
         errdefer txn.abort();
-        try txn.set(null, "x", "foo");
-        try txn.set(null, "z", "baz");
+
+        const dbi = try txn.openDatabase(null, .{});
+
+        try txn.set(dbi, "x", "foo");
+        try txn.set(dbi, "z", "baz");
         try txn.commit();
     }
 
-    try expectEqual(try compare.compareEnvironments(env_a, env_b, .{}), 0);
-    try expectEqual(try compare.compareEnvironments(env_b, env_a, .{}), 0);
+    try expectEqual(try compare.compareEnvironments(env_a, env_b, null, .{}), 0);
+    try expectEqual(try compare.compareEnvironments(env_b, env_a, null, .{}), 0);
 }
 
 test "set empty value" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try utils.resolvePath(tmp.dir, ".");
-
-    const env = try Environment.open(path, .{});
+    const env = try Environment.open(tmp.dir, .{});
     defer env.close();
 
     const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
     defer txn.abort();
 
-    try txn.set(null, "a", "");
-    if (try txn.get(null, "a")) |value| {
+    const dbi = try txn.openDatabase(null, .{});
+
+    try txn.set(dbi, "a", "");
+
+    if (try txn.get(dbi, "a")) |value| {
         try expect(value.len == 0);
     } else {
         return error.KeyNotFound;
@@ -158,19 +188,19 @@ test "stat" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try utils.resolvePath(tmp.dir, ".");
-
-    const env = try Environment.open(path, .{});
+    const env = try Environment.open(tmp.dir, .{});
     defer env.close();
 
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
 
-        try txn.set(null, "a", "foo");
-        try txn.set(null, "b", "bar");
-        try txn.set(null, "c", "baz");
-        try txn.set(null, "a", "aaa");
+        const dbi = try txn.openDatabase(null, .{});
+
+        try txn.set(dbi, "a", "foo");
+        try txn.set(dbi, "b", "bar");
+        try txn.set(dbi, "c", "baz");
+        try txn.set(dbi, "a", "aaa");
         try txn.commit();
     }
 
@@ -182,7 +212,10 @@ test "stat" {
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
-        try txn.delete(null, "c");
+
+        const dbi = try txn.openDatabase(null, .{});
+
+        try txn.delete(dbi, "c");
         try txn.commit();
     }
 
@@ -196,27 +229,28 @@ test "Cursor.deleteCurrentKey()" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try utils.resolvePath(tmp.dir, ".");
-    const env = try Environment.open(path, .{});
+    const env = try Environment.open(tmp.dir, .{});
     defer env.close();
 
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         defer txn.abort();
 
-        try txn.set(null, "a", "foo");
-        try txn.set(null, "b", "bar");
-        try txn.set(null, "c", "baz");
-        try txn.set(null, "d", "qux");
+        const dbi = try txn.openDatabase(null, .{});
 
-        const cursor = try Cursor.open(txn, null);
+        try txn.set(dbi, "a", "foo");
+        try txn.set(dbi, "b", "bar");
+        try txn.set(dbi, "c", "baz");
+        try txn.set(dbi, "d", "qux");
+
+        const cursor = try Cursor.open(txn, dbi);
         try cursor.goToKey("c");
         try expectEqualSlices(u8, try cursor.getCurrentValue(), "baz");
         try cursor.deleteCurrentKey();
         try expectEqualSlices(u8, try cursor.getCurrentKey(), "d");
         try utils.expectEqualKeys(try cursor.goToPrevious(), "b");
 
-        try utils.expectEqualEntries(txn, null, &.{
+        try utils.expectEqualEntries(txn, dbi, &.{
             .{ "a", "foo" },
             .{ "b", "bar" },
             .{ "d", "qux" },
@@ -228,20 +262,21 @@ test "seek" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try utils.resolvePath(tmp.dir, ".");
-    const env = try Environment.open(path, .{});
+    const env = try Environment.open(tmp.dir, .{});
     defer env.close();
 
     {
         const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
         defer txn.abort();
 
-        try txn.set(null, "a", "foo");
-        try txn.set(null, "aa", "bar");
-        try txn.set(null, "ab", "baz");
-        try txn.set(null, "abb", "qux");
+        const dbi = try txn.openDatabase(null, .{});
 
-        const cursor = try Cursor.open(txn, null);
+        try txn.set(dbi, "a", "foo");
+        try txn.set(dbi, "aa", "bar");
+        try txn.set(dbi, "ab", "baz");
+        try txn.set(dbi, "abb", "qux");
+
+        const cursor = try Cursor.open(txn, dbi);
         defer cursor.close();
         try utils.expectEqualKeys(try cursor.seek("aba"), "abb");
         try expectEqual(try cursor.seek("b"), null);
@@ -252,33 +287,38 @@ test "parent transactions" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try utils.resolvePath(tmp.dir, ".");
-    const env = try Environment.open(path, .{});
+    const env = try Environment.open(tmp.dir, .{});
     defer env.close();
 
     const parent = try Transaction.open(env, .{ .mode = .ReadWrite });
     defer parent.abort();
 
-    try parent.set(null, "a", "foo");
-    try parent.set(null, "b", "bar");
-    try parent.set(null, "c", "baz");
+    const parent_dbi = try parent.openDatabase(null, .{});
+
+    try parent.set(parent_dbi, "a", "foo");
+    try parent.set(parent_dbi, "b", "bar");
+    try parent.set(parent_dbi, "c", "baz");
 
     {
         const child = try Transaction.open(env, .{ .mode = .ReadWrite, .parent = parent });
         errdefer child.abort();
-        try child.delete(null, "c");
+
+        const child_dbi = try child.openDatabase(null, .{});
+        try child.delete(child_dbi, "c");
         try child.commit();
     }
 
-    try expectEqual(@as(?[]const u8, null), try parent.get(null, "c"));
+    try expectEqual(@as(?[]const u8, null), try parent.get(parent_dbi, "c"));
 
     {
         const child = try Transaction.open(env, .{ .mode = .ReadWrite, .parent = parent });
         defer child.abort();
-        try child.set(null, "c", "baz");
+
+        const child_dbi = try child.openDatabase(null, .{});
+        try child.set(child_dbi, "c", "baz");
     }
 
-    try expectEqual(@as(?[]const u8, null), try parent.get(null, "c"));
+    try expectEqual(@as(?[]const u8, null), try parent.get(parent_dbi, "c"));
 }
 
 test "resize map" {
@@ -287,11 +327,7 @@ test "resize map" {
 
     var map_size: usize = 64 * 4096;
 
-    const path = try utils.resolvePath(tmp.dir, ".");
-    const env = try Environment.open(path, .{
-        .map_size = map_size,
-    });
-
+    const env = try Environment.open(tmp.dir, .{ .map_size = map_size });
     defer env.close();
 
     var i: u32 = 0;
@@ -316,10 +352,11 @@ fn setEntry(env: Environment, i: u32) !void {
     var value: [32]u8 = undefined;
 
     const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
+    const dbi = try txn.openDatabase(null, .{});
 
     std.mem.writeIntBig(u32, &key, i);
     std.crypto.hash.Blake3.hash(&key, &value, .{});
-    try txn.set(null, &key, &value);
+    try txn.set(dbi, &key, &value);
 
     try txn.commit();
 }

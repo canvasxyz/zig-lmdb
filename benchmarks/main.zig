@@ -4,7 +4,6 @@ const hex = std.fmt.fmtSliceHexLower;
 
 const lmdb = @import("lmdb");
 
-const data_directory_name = "data";
 const value_size = 8;
 
 var prng = std.rand.DefaultPrng.init(0x0000000000000000);
@@ -33,9 +32,7 @@ const Context = struct {
         var tmp = std.testing.tmpDir(.{});
         defer tmp.cleanup();
 
-        try tmp.dir.makeDir("data");
-        const path = try lmdb.utils.resolvePath(tmp.dir, "data");
-        const env = try lmdb.Environment.open(path, options);
+        const env = try lmdb.Environment.open(tmp.dir, options);
         defer env.close();
 
         const ctx = Context{ .env = env, .name = name, .size = size, .log = log };
@@ -55,7 +52,7 @@ const Context = struct {
         const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
 
-        const dbi = try txn.openDatabase(.{});
+        const dbi = try txn.openDatabase(null, .{});
 
         var key: [4]u8 = undefined;
         var value: [value_size]u8 = undefined;
@@ -95,7 +92,7 @@ const Context = struct {
             const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadOnly });
             defer txn.abort();
 
-            const dbi = try txn.openDatabase(.{});
+            const dbi = try txn.openDatabase(null, .{});
 
             var key: [4]u8 = undefined;
 
@@ -123,7 +120,7 @@ const Context = struct {
             const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadWrite });
             errdefer txn.abort();
 
-            const dbi = try txn.openDatabase(.{});
+            const dbi = try txn.openDatabase(null, .{});
 
             var key: [4]u8 = undefined;
             var seed: [12]u8 = undefined;
@@ -162,7 +159,9 @@ const Context = struct {
             const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadOnly });
             defer txn.abort();
 
-            const cursor = try lmdb.Cursor.open(txn, null);
+            const dbi = try txn.openDatabase(null, .{});
+
+            const cursor = try lmdb.Cursor.open(txn, dbi);
             defer cursor.close();
 
             if (try cursor.goToFirst()) |first_key| {

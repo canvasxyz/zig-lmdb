@@ -6,40 +6,41 @@ const Transaction = @import("transaction.zig");
 const Cursor = @import("cursor.zig");
 
 const Options = struct {
-    dbs: ?[][*:0]const u8 = null,
     log: ?std.fs.File.Writer = null,
 };
 
-pub fn compareEnvironments(env_a: Environment, env_b: Environment, options: Options) !usize {
+pub fn compareEnvironments(env_a: Environment, env_b: Environment, dbs: ?[][]const u8, options: Options) !usize {
     const txn_a = try Transaction.open(env_a, .{ .mode = .ReadOnly });
     defer txn_a.abort();
+
     const txn_b = try Transaction.open(env_b, .{ .mode = .ReadOnly });
     defer txn_b.abort();
 
-    if (options.dbs) |dbs| {
+    if (dbs) |names| {
         var sum: usize = 0;
-        for (dbs) |name| {
-            const db_a = try txn_a.openDatabase(.{ .name = name });
-            const db_b = try txn_b.openDatabase(.{ .name = name });
-            sum += try compareDatabases(txn_a, db_a, txn_b, db_b, options);
+        for (names) |name| {
+            const dbi_a = try txn_a.openDatabase(name, .{});
+            const dbi_b = try txn_b.openDatabase(name, .{});
+            sum += try compareDatabases(txn_a, dbi_a, txn_b, dbi_b, options);
         }
 
         return sum;
     } else {
-        const db_a = try txn_a.openDatabase(.{});
-        const db_b = try txn_b.openDatabase(.{});
-        return try compareDatabases(txn_a, db_a, txn_b, db_b, options);
+        const dbi_a = try txn_a.openDatabaseZ(null, .{});
+        const dbi_b = try txn_b.openDatabaseZ(null, .{});
+        return try compareDatabases(txn_a, dbi_a, txn_b, dbi_b, options);
     }
 }
 
-pub fn compareDatabases(txn_a: Transaction, db_a: ?Transaction.DBI, txn_b: Transaction, db_b: ?Transaction.DBI, options: Options) !usize {
+pub fn compareDatabases(txn_a: Transaction, dbi_a: Transaction.DBI, txn_b: Transaction, dbi_b: Transaction.DBI, options: Options) !usize {
     if (options.log) |log| try log.print("{s:-<80}\n", .{"START DIFF "});
 
     var differences: usize = 0;
 
-    const cursor_a = try Cursor.open(txn_a, db_a);
+    const cursor_a = try Cursor.open(txn_a, dbi_a);
     defer cursor_a.close();
-    const cursor_b = try Cursor.open(txn_b, db_b);
+
+    const cursor_b = try Cursor.open(txn_b, dbi_b);
     defer cursor_b.close();
 
     var key_a = try cursor_a.goToFirst();
