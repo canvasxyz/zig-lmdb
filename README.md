@@ -22,10 +22,7 @@ To use named databases, make sure to open the environment with a non-zero `Envir
 const lmdb = @import("lmdb");
 
 pub fn main() !void {
-    var dir = try std.fs.cwd().openDir("db", .{});
-    defer dir.close();
-
-    const env = try lmdb.Environment.open(dir, .{ .max_dbs = 2 });
+    const env = try lmdb.Environment.open("path/to/db", .{ .max_dbs = 2 });
     defer env.close();
 
     const txn = try lmdb.Transaction.open(env, .{ .mode = .ReadWrite });
@@ -47,10 +44,7 @@ To use a single unnamed database, use `null` as the database name.
 const lmdb = @import("lmdb");
 
 pub fn main() !void {
-    var dir = try std.fs.cwd().openDir("db", .{});
-    defer dir.close();
-
-    const env = try lmdb.Environment.open(dir, .{});
+    const env = try lmdb.Environment.open("path/to/db", .{});
     defer env.close();
 
     const txn = try lmdb.Transaction.open(env, .{ .mode = .ReadWrite });
@@ -83,7 +77,10 @@ pub const Environment = struct {
         num_readers: u32,
     };
 
-    pub fn open(dir: std.fs.Dir, options: EnvironmentOptions) !Environment
+    pub fn open(path: []const u8, options: EnvironmentOptions) !Environment
+    pub fn openZ(path: [:0]const u8, options: EnvironmentOptions) !Environment
+    pub fn openDir(dir: std.fs.Dir, options: EnvironmentOptions) !Environment
+
     pub fn close(self: Environment) void
 
     pub fn flush(self: Environment) !void
