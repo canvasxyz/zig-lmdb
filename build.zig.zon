@@ -1,0 +1,11 @@
+.{
+    .paths = .{ "src", "build.zig", "build.zig.zon", "README.md" },
+    .name = "zig-lmdb",
+    .version = "0.1.0",
+    .dependencies = .{
+        .lmdb = .{
+            .url = "https://github.com/LMDB/lmdb/archive/refs/tags/LMDB_0.9.31.tar.gz",
+            .hash = "12209bfdbf43d479c2cac0ca2212853ab2136f1621f49461f62c7932a7819bc29110",
+        },
+    },
+}

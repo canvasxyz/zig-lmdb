@@ -1,31 +1,18 @@
 const std = @import("std");
 const LazyPath = std.build.LazyPath;
 
-const lmdb_source_files = [_][]const u8{
-    "libs/openldap/libraries/liblmdb/mdb.c",
-    "libs/openldap/libraries/liblmdb/midl.c",
-};
-
 pub fn build(b: *std.build.Builder) void {
-    // const target = b.standardTargetOptions(.{});
-    // const optimize = b.standardOptimizeOption(.{});
-
-    // // openldap static library
-    // const openldap = b.addStaticLibrary(.{ .name = "openldap", .target = target, .optimize = optimize });
-    // openldap.addIncludePath(.{ .path = "./libs/openldap/libraries/liblmdb" });
-    // openldap.addCSourceFiles(&.{
-    //     "libs/openldap/libraries/liblmdb/mdb.c",
-    //     "libs/openldap/libraries/liblmdb/midl.c",
-    // }, &.{});
-
-    // b.installArtifact(openldap);
-
     const lmdb = b.addModule("lmdb", .{ .source_file = LazyPath.relative("src/lib.zig") });
+
+    const lmdb_dep = b.dependency("lmdb", .{});
 
     // Tests
     const tests = b.addTest(.{ .root_source_file = LazyPath.relative("src/test.zig") });
-    tests.addIncludePath(.{ .path = "./libs/openldap/libraries/liblmdb" });
-    tests.addCSourceFiles(&lmdb_source_files, &.{});
+
+    tests.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+    tests.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/mdb.c"), .flags = &.{} });
+    tests.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/midl.c"), .flags = &.{} });
+
     const run_tests = b.addRunArtifact(tests);
 
     b.step("test", "Run LMDB tests").dependOn(&run_tests.step);
@@ -38,8 +25,9 @@ pub fn build(b: *std.build.Builder) void {
     });
 
     bench.addModule("lmdb", lmdb);
-    bench.addIncludePath(.{ .path = "libs/openldap/libraries/liblmdb" });
-    bench.addCSourceFiles(&lmdb_source_files, &.{});
+    bench.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+    bench.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/mdb.c"), .flags = &.{} });
+    bench.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/midl.c"), .flags = &.{} });
 
     const run_bench = b.addRunArtifact(bench);
     b.step("bench", "Run LMDB benchmarks").dependOn(&run_bench.step);

@@ -1,3 +1,0 @@
-[submodule "libs/openldap"]
-	path = libs/openldap
-	url = https://git.openldap.org/openldap/openldap
