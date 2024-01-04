@@ -1,17 +1,23 @@
 const std = @import("std");
-const LazyPath = std.build.LazyPath;
+const LazyPath = std.Build.LazyPath;
 
-pub fn build(b: *std.build.Builder) void {
-    const lmdb = b.addModule("lmdb", .{ .source_file = LazyPath.relative("src/lib.zig") });
+pub fn build(b: *std.Build) void {
+    // const optimize = b.standardOptimizeOption(.{});
+    const target = b.standardTargetOptions(.{});
 
+    const lmdb = b.addModule("lmdb", .{ .root_source_file = LazyPath.relative("src/lib.zig") });
     const lmdb_dep = b.dependency("lmdb", .{});
+
+    lmdb.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
+    lmdb.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/mdb.c") });
+    lmdb.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/midl.c") });
 
     // Tests
     const tests = b.addTest(.{ .root_source_file = LazyPath.relative("src/test.zig") });
 
     tests.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-    tests.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/mdb.c"), .flags = &.{} });
-    tests.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/midl.c"), .flags = &.{} });
+    tests.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/mdb.c") });
+    tests.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/midl.c") });
 
     const run_tests = b.addRunArtifact(tests);
 
@@ -22,12 +28,10 @@ pub fn build(b: *std.build.Builder) void {
         .name = "lmdb-benchmark",
         .root_source_file = LazyPath.relative("benchmarks/main.zig"),
         .optimize = .ReleaseFast,
+        .target = target,
     });
 
-    bench.addModule("lmdb", lmdb);
-    bench.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-    bench.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/mdb.c"), .flags = &.{} });
-    bench.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/midl.c"), .flags = &.{} });
+    bench.root_module.addImport("lmdb", lmdb);
 
     const run_bench = b.addRunArtifact(bench);
     b.step("bench", "Run LMDB benchmarks").dependOn(&run_bench.step);

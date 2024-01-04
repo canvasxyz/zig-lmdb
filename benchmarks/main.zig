@@ -59,7 +59,7 @@ const Context = struct {
 
         var i: u32 = 0;
         while (i < ctx.size) : (i += 1) {
-            std.mem.writeIntBig(u32, &key, i);
+            std.mem.writeInt(u32, &key, i, .big);
             std.crypto.hash.Blake3.hash(&key, &value, .{});
             try txn.set(dbi, &key, &value);
         }
@@ -98,7 +98,7 @@ const Context = struct {
 
             var n: u32 = 0;
             while (n < batch_size) : (n += 1) {
-                std.mem.writeIntBig(u32, &key, random.uintLessThan(u32, ctx.size));
+                std.mem.writeInt(u32, &key, random.uintLessThan(u32, ctx.size), .big);
                 const value = try txn.get(dbi, &key);
                 std.debug.assert(value.?.len == value_size);
             }
@@ -126,13 +126,13 @@ const Context = struct {
             var seed: [12]u8 = undefined;
             var value: [8]u8 = undefined;
 
-            std.mem.writeIntBig(u32, seed[0..4], ctx.size);
-            std.mem.writeIntBig(u32, seed[4..8], @as(u32, @intCast(i)));
+            std.mem.writeInt(u32, seed[0..4], ctx.size, .big);
+            std.mem.writeInt(u32, seed[4..8], @as(u32, @intCast(i)), .big);
 
             var n: u32 = 0;
             while (n < batch_size) : (n += 1) {
-                std.mem.writeIntBig(u32, &key, random.uintLessThan(u32, ctx.size));
-                std.mem.writeIntBig(u32, seed[8..], n);
+                std.mem.writeInt(u32, &key, random.uintLessThan(u32, ctx.size), .big);
+                std.mem.writeInt(u32, seed[8..], n, .big);
                 std.crypto.hash.Blake3.hash(&seed, &value, .{});
                 try txn.set(dbi, &key, &value);
             }

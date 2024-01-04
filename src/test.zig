@@ -184,7 +184,7 @@ test "set empty value" {
     }
 }
 
-test "stat" {
+test "Environment.stat" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
@@ -258,7 +258,7 @@ test "Cursor.deleteCurrentKey()" {
     }
 }
 
-test "seek" {
+test "Cursor.seek" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
@@ -353,8 +353,7 @@ fn setEntry(env: Environment, i: u32) !void {
 
     const txn = try Transaction.open(env, .{ .mode = .ReadWrite });
     const dbi = try txn.openDatabase(null, .{});
-
-    std.mem.writeIntBig(u32, &key, i);
+    std.mem.writeInt(u32, &key, i, .big);
     std.crypto.hash.Blake3.hash(&key, &value, .{});
     try txn.set(dbi, &key, &value);
 
