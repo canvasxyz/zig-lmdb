@@ -50,10 +50,10 @@ pub fn main() !void {
     const txn = try lmdb.Transaction.init(env, .{ .mode = .ReadWrite });
     errdefer txn.abort();
 
-    const widgets = try txn.database("widgets", .{});
+    const widgets = try txn.database("widgets", .{ .create = true });
     try widgets.set("aaa", "foo");
 
-    const gadgets = try txn.database("gadgets", .{});
+    const gadgets = try txn.database("gadgets", .{ .create = true });
     try gadgets.set("aaa", "bar");
 
     try txn.commit();
