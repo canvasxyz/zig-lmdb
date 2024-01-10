@@ -13,12 +13,8 @@ pub fn build(b: *std.Build) void {
     lmdb.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/midl.c") });
 
     // Tests
-    const tests = b.addTest(.{ .root_source_file = LazyPath.relative("src/test.zig") });
-
-    tests.addIncludePath(lmdb_dep.path("libraries/liblmdb"));
-    tests.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/mdb.c") });
-    tests.addCSourceFile(.{ .file = lmdb_dep.path("libraries/liblmdb/midl.c") });
-
+    const tests = b.addTest(.{ .root_source_file = LazyPath.relative("test/main.zig") });
+    tests.root_module.addImport("lmdb", lmdb);
     const run_tests = b.addRunArtifact(tests);
 
     b.step("test", "Run LMDB tests").dependOn(&run_tests.step);

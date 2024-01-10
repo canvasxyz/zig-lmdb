@@ -32,8 +32,8 @@ const Context = struct {
         var tmp = std.testing.tmpDir(.{});
         defer tmp.cleanup();
 
-        const env = try lmdb.Environment.openDir(tmp.dir, options);
-        defer env.close();
+        const env = try lmdb.Environment.initDir(tmp.dir, options);
+        defer env.deinit();
 
         const ctx = Context{ .env = env, .name = name, .size = size, .log = log };
         try ctx.initialize();
@@ -49,10 +49,10 @@ const Context = struct {
     }
 
     fn initialize(ctx: Context) !void {
-        const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadWrite });
+        const txn = try lmdb.Transaction.init(ctx.env, .{ .mode = .ReadWrite });
         errdefer txn.abort();
 
-        const dbi = try txn.openDatabase(null, .{});
+        const dbi = try txn.database(null, .{});
 
         var key: [4]u8 = undefined;
         var value: [value_size]u8 = undefined;
@@ -65,7 +65,7 @@ const Context = struct {
         }
 
         try txn.commit();
-        try ctx.env.flush();
+        try ctx.env.sync();
     }
 
     fn printHeader(ctx: Context) !void {
@@ -89,10 +89,10 @@ const Context = struct {
             timer.reset();
             operations += batch_size;
 
-            const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadOnly });
+            const txn = try lmdb.Transaction.init(ctx.env, .{ .mode = .ReadOnly });
             defer txn.abort();
 
-            const dbi = try txn.openDatabase(null, .{});
+            const dbi = try txn.database(null, .{});
 
             var key: [4]u8 = undefined;
 
@@ -117,10 +117,10 @@ const Context = struct {
         for (&runtimes, 0..) |*t, i| {
             timer.reset();
 
-            const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadWrite });
+            const txn = try lmdb.Transaction.init(ctx.env, .{ .mode = .ReadWrite });
             errdefer txn.abort();
 
-            const dbi = try txn.openDatabase(null, .{});
+            const dbi = try txn.database(null, .{});
 
             var key: [4]u8 = undefined;
             var seed: [12]u8 = undefined;
@@ -138,7 +138,7 @@ const Context = struct {
             }
 
             try txn.commit();
-            try ctx.env.flush();
+            try ctx.env.sync();
 
             t.* = @as(f64, @floatFromInt(timer.read())) / ms;
             operations += batch_size;
@@ -156,13 +156,13 @@ const Context = struct {
             timer.reset();
             operations += ctx.size;
 
-            const txn = try lmdb.Transaction.open(ctx.env, .{ .mode = .ReadOnly });
+            const txn = try lmdb.Transaction.init(ctx.env, .{ .mode = .ReadOnly });
             defer txn.abort();
 
-            const dbi = try txn.openDatabase(null, .{});
+            const dbi = try txn.database(null, .{});
 
-            const cursor = try lmdb.Cursor.open(txn, dbi);
-            defer cursor.close();
+            const cursor = try lmdb.Cursor.init(txn, dbi);
+            defer cursor.deinit();
 
             if (try cursor.goToFirst()) |first_key| {
                 std.debug.assert(first_key.len == 4);
@@ -176,7 +176,7 @@ const Context = struct {
                 }
             }
 
-            try ctx.env.flush();
+            try ctx.env.sync();
             t.* = @as(f64, @floatFromInt(timer.read())) / ms;
         }
 

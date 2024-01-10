@@ -10,6 +10,7 @@ Built and tested with Zig version `0.12.0-dev.2030+2ac315c24`.
 - [API](#api)
   - [`Environment`](#environment)
   - [`Transaction`](#transaction)
+  - [`Database`](#database)
   - [`Cursor`](#cursor)
   - [`Stat`](#stat)
 - [Benchmarks](#benchmarks)
@@ -18,44 +19,42 @@ Built and tested with Zig version `0.12.0-dev.2030+2ac315c24`.
 
 An LMDB environment can either have multiple named databases, or a single unnamed database.
 
-To use named databases, make sure to open the environment with a non-zero `EnvironmentOptions.max_dbs` value. Databases must be opened within each transaction using `Transaction.openDatabase`, which returns a `u32` database ID that can be passed as the first argument to `txn.get`, `txn.set`, `txn.delete`, etc. You don't have to close databases.
+To use a single unnamed database, open a transaction and use the `txn.get`, `txn.set`, `txn.delete`, and `txn.cursor` methods directly.
 
 ```zig
 const lmdb = @import("lmdb");
 
 pub fn main() !void {
-    const env = try lmdb.Environment.open("path/to/db", .{ .max_dbs = 2 });
-    defer env.close();
+    const env = try lmdb.Environment.init("path/to/db", .{});
+    defer env.deinit();
 
-    const txn = try lmdb.Transaction.open(env, .{ .mode = .ReadWrite });
+    const txn = try lmdb.Transaction.init(env, .{ .mode = .ReadWrite });
     errdefer txn.abort();
 
-    const widgets = try txn.openDatabase("widgets", .{});
-    try txn.set(widgets, "a", "foo");
-
-    const gadgets = try txn.openDatabase("gadgets", .{});
-    try txn.set(gadgets, "b", "bar");
+    try txn.set("aaa", "foo");
+    try txn.set("bbb", "bar");
 
     try txn.commit();
 }
 ```
 
-To use a single unnamed database, use `null` as the database name.
+To use named databases, open the environment with a non-zero `max_dbs` value. Then open each named database using `Transaction.database`, which returns a `Database` struct with `db.get`/`db.set`/`db.delete`/`db.cursor` methods. You don't have to close databases, but they're only valid during the lifetime of the transaction.
 
 ```zig
 const lmdb = @import("lmdb");
 
 pub fn main() !void {
-    const env = try lmdb.Environment.open("path/to/db", .{});
-    defer env.close();
+    const env = try lmdb.Environment.init("path/to/db", .{ .max_dbs = 2 });
+    defer env.deinit();
 
-    const txn = try lmdb.Transaction.open(env, .{ .mode = .ReadWrite });
+    const txn = try lmdb.Transaction.init(env, .{ .mode = .ReadWrite });
     errdefer txn.abort();
 
-    const dbi = try txn.openDatabase(null, .{});
+    const widgets = try txn.database("widgets", .{});
+    try widgets.set("aaa", "foo");
 
-    try txn.set(dbi, "a", "foo");
-    try txn.set(dbi, "b", "bar");
+    const gadgets = try txn.database("gadgets", .{});
+    try gadgets.set("aaa", "bar");
 
     try txn.commit();
 }
@@ -67,27 +66,31 @@ pub fn main() !void {
 
 ```zig
 pub const Environment = struct {
-    pub const EnvironmentOptions = struct {
-        map_size: usize = 10485760,
+    pub const Options = struct {
+        map_size: usize = 10 * 1024 * 1024,
         max_dbs: u32 = 0,
+        max_readers: u32 = 126,
+        read_only: bool = false,
+        write_map: bool = false,
+        no_tls: bool = false,
+        no_lock: bool = false,
         mode: u16 = 0o664,
     };
 
-    pub const EnvironmentInfo = struct {
+    pub const Info = struct {
         map_size: usize,
         max_readers: u32,
         num_readers: u32,
     };
 
-    pub fn open(path: []const u8, options: EnvironmentOptions) !Environment
-    pub fn openZ(path: [:0]const u8, options: EnvironmentOptions) !Environment
-    pub fn openDir(dir: std.fs.Dir, options: EnvironmentOptions) !Environment
+    pub fn init(path: [*:0]const u8, options: Options) !Environment
+    pub fn deinit(self: Environment) void
 
-    pub fn close(self: Environment) void
+    pub fn transaction(self: Environment, options: Transaction.Options) !Transaction
 
-    pub fn flush(self: Environment) !void
+    pub fn sync(self: Environment) !void
     pub fn stat(self: Environment) !Stat
-    pub fn info(self: Environment) !EnvironmentInfo
+    pub fn info(self: Environment) !Info
 
     pub fn resize(self: Environment, size: usize) !void // mdb_env_set_mapsize
 };
@@ -99,33 +102,52 @@ pub const Environment = struct {
 pub const Transaction = struct {
     pub const Mode = enum { ReadOnly, ReadWrite };
 
-    pub const TransactionOptions = struct {
+    pub const Options = struct {
         mode: Mode,
         parent: ?Transaction = null,
     };
 
-    pub const DBI = u32;
+    pub fn init(env: Environment, options: Options) !Transaction
+    pub fn abort(self: Transaction) void
+    pub fn commit(self: Transaction) !void
 
-    pub const DatabaseOptions = struct {
-        name: ?[*:0]const u8 = null,
-        create: bool = true,
+    pub fn get(self: Transaction, key: []const u8) !?[]const u8
+    pub fn set(self: Transaction, key: []const u8, value: []const u8) !void
+    pub fn delete(self: Transaction, key: []const u8) !void
+
+    pub fn cursor(self: Database) !Cursor
+    pub fn database(self: Transaction, name: ?[*:0]const u8, options: Database.Options) !Database
+};
+```
+
+### `Database`
+
+```zig
+pub const Database = struct {
+    pub const Options = struct {
+        reverse_key: bool = false,
+        integer_key: bool = false,
+        create: bool = false,
     };
 
-    pub fn open(env: Environment, options: Options) !Transaction
-    pub fn init(self: *Transaction, env: Environment, options: Options) !void
+    pub const Stat = struct {
+        psize: u32,
+        depth: u32,
+        branch_pages: usize,
+        leaf_pages: usize,
+        overflow_pages: usize,
+        entries: usize,
+    };
 
-    pub fn commit(self: Transaction) !void
-    pub fn abort(self: Transaction) void
+    pub fn open(txn: Transaction, name: ?[*:0]const u8, options: Options) !Database
 
-    pub fn openDatabase(self: Transaction, name: ?[]const u8, options: DatabaseOptions) !DBI
-    pub fn openDatabaseZ(self: Transaction, name: ?[*:0]u8, options: DatabaseOptions) !DBI
+    pub fn get(self: Database, key: []const u8) !?[]const u8
+    pub fn set(self: Database, key: []const u8, value: []const u8) !void
+    pub fn delete(self: Database, key: []const u8) !void
 
-    pub fn getEnvironment(self: Transaction) !Environment {}
-    pub fn stat(self: Transaction, dbi: DBI) !Stat
+    pub fn cursor(self: Database) !Cursor
 
-    pub fn get(self: Transaction, dbi: DBI, key: []const u8) !?[]const u8
-    pub fn set(self: Transaction, dbi: DBI, key: []const u8, value: []const u8) !void
-    pub fn delete(self: Transaction, dbi: DBI, key: []const u8) !void
+    pub fn stat(self: Database) !Stat
 };
 ```
 
@@ -135,11 +157,8 @@ pub const Transaction = struct {
 pub const Cursor = struct {
     pub const Entry = struct { key: []const u8, value: []const u8 };
 
-    pub fn open(txn: Transaction, dbi: Transaction.DBI) !Cursor
-    pub fn close(self: Cursor) void
-
-    pub fn getTransaction(self: Cursor) Transaction
-    pub fn getDatabase(self: Cursor) Transaction.DBI
+    pub fn init(db: Database) !Cursor
+    pub fn deinit(self: Cursor) void
 
     pub fn getCurrentEntry(self: Cursor) !Entry
     pub fn getCurrentKey(self: Cursor) ![]const u8
@@ -159,19 +178,6 @@ pub const Cursor = struct {
 ```
 
 > ⚠️ Always close cursors **before** committing or aborting the transaction.
-
-### `Stat`
-
-```zig
-pub const Stat = struct {
-    psize: u32,
-    depth: u32,
-    branch_pages: usize,
-    leaf_pages: usize,
-    overflow_pages: usize,
-    entries: usize,
-};
-```
 
 ## Benchmarks
 

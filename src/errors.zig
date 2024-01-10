@@ -37,7 +37,7 @@ pub const Error = error{
     MDB_UNKNOWN_ERROR,
 };
 
-pub fn throw(rc: c_int) !void {
+pub fn throw(rc: c_int) Error!void {
     try switch (rc) {
         c.MDB_SUCCESS => {},
 

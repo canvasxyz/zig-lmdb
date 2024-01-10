@@ -1,6 +1,0 @@
-psize: u32,
-depth: u32,
-branch_pages: usize,
-leaf_pages: usize,
-overflow_pages: usize,
-entries: usize,

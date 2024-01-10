@@ -1,8 +1,8 @@
-pub const Environment = @import("environment.zig");
-pub const Transaction = @import("transaction.zig");
-pub const Cursor = @import("cursor.zig");
+pub const Environment = @import("Environment.zig");
+pub const Transaction = @import("Transaction.zig");
+pub const Database = @import("Database.zig");
+pub const Cursor = @import("Cursor.zig");
 
-pub const utils = @import("utils.zig");
-pub const compare = @import("compare.zig");
+const errors = @import("errors.zig");
 
-pub const errors = @import("errors.zig");
+pub const Error = errors.Error;

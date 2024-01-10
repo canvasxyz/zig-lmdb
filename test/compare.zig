@@ -1,47 +1,45 @@
 const std = @import("std");
 const hex = std.fmt.fmtSliceHexLower;
 
-const Environment = @import("environment.zig");
-const Transaction = @import("transaction.zig");
-const Cursor = @import("cursor.zig");
+const lmdb = @import("lmdb");
 
 const Options = struct {
     log: ?std.fs.File.Writer = null,
 };
 
-pub fn compareEnvironments(env_a: Environment, env_b: Environment, dbs: ?[][]const u8, options: Options) !usize {
-    const txn_a = try Transaction.open(env_a, .{ .mode = .ReadOnly });
+pub fn compareEnvironments(env_a: lmdb.Environment, env_b: lmdb.Environment, dbs: ?[][*:0]const u8, options: Options) !usize {
+    const txn_a = try lmdb.Transaction.init(env_a, .{ .mode = .ReadOnly });
     defer txn_a.abort();
 
-    const txn_b = try Transaction.open(env_b, .{ .mode = .ReadOnly });
+    const txn_b = try lmdb.Transaction.init(env_b, .{ .mode = .ReadOnly });
     defer txn_b.abort();
 
     if (dbs) |names| {
         var sum: usize = 0;
         for (names) |name| {
-            const dbi_a = try txn_a.openDatabase(name, .{});
-            const dbi_b = try txn_b.openDatabase(name, .{});
-            sum += try compareDatabases(txn_a, dbi_a, txn_b, dbi_b, options);
+            const db_a = try txn_a.database(name, .{});
+            const db_b = try txn_b.database(name, .{});
+            sum += try compareDatabases(db_a, db_b, options);
         }
 
         return sum;
     } else {
-        const dbi_a = try txn_a.openDatabaseZ(null, .{});
-        const dbi_b = try txn_b.openDatabaseZ(null, .{});
-        return try compareDatabases(txn_a, dbi_a, txn_b, dbi_b, options);
+        const db_a = try txn_a.database(null, .{});
+        const db_b = try txn_b.database(null, .{});
+        return try compareDatabases(db_a, db_b, options);
     }
 }
 
-pub fn compareDatabases(txn_a: Transaction, dbi_a: Transaction.DBI, txn_b: Transaction, dbi_b: Transaction.DBI, options: Options) !usize {
+pub fn compareDatabases(db_a: lmdb.Database, db_b: lmdb.Database, options: Options) !usize {
     if (options.log) |log| try log.print("{s:-<80}\n", .{"START DIFF "});
 
     var differences: usize = 0;
 
-    const cursor_a = try Cursor.open(txn_a, dbi_a);
-    defer cursor_a.close();
+    const cursor_a = try lmdb.Cursor.init(db_a);
+    defer cursor_a.deinit();
 
-    const cursor_b = try Cursor.open(txn_b, dbi_b);
-    defer cursor_b.close();
+    const cursor_b = try lmdb.Cursor.init(db_b);
+    defer cursor_b.deinit();
 
     var key_a = try cursor_a.goToFirst();
     var key_b = try cursor_b.goToFirst();
