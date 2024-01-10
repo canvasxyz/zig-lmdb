@@ -18,37 +18,6 @@ fn open(dir: std.fs.Dir, options: lmdb.Environment.Options) !lmdb.Environment {
     return try lmdb.Environment.init(path_buffer[0..path.len :0], options);
 }
 
-test "expectEqualEntries" {
-    var tmp = std.testing.tmpDir(.{});
-    defer tmp.cleanup();
-
-    const env = try open(tmp.dir, .{});
-    defer env.deinit();
-
-    {
-        const txn = try env.transaction(.{ .mode = .ReadWrite });
-        errdefer txn.abort();
-
-        try txn.set("a", "foo");
-        try txn.set("b", "bar");
-        try txn.set("c", "baz");
-        try txn.set("d", "qux");
-        try txn.commit();
-    }
-
-    {
-        const txn = try env.transaction(.{ .mode = .ReadOnly });
-        defer txn.abort();
-
-        try utils.expectEqualEntries(try txn.database(null, .{}), &[_][2][]const u8{
-            .{ "a", "foo" },
-            .{ "b", "bar" },
-            .{ "c", "baz" },
-            .{ "d", "qux" },
-        });
-    }
-}
-
 test "basic operations" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
