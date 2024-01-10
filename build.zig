@@ -15,9 +15,9 @@ pub fn build(b: *std.Build) void {
     // Tests
     const tests = b.addTest(.{ .root_source_file = LazyPath.relative("test/main.zig") });
     tests.root_module.addImport("lmdb", lmdb);
-    const run_tests = b.addRunArtifact(tests);
+    const test_runner = b.addRunArtifact(tests);
 
-    b.step("test", "Run LMDB tests").dependOn(&run_tests.step);
+    b.step("test", "Run LMDB tests").dependOn(&test_runner.step);
 
     // Benchmarks
     const bench = b.addExecutable(.{
@@ -29,6 +29,6 @@ pub fn build(b: *std.Build) void {
 
     bench.root_module.addImport("lmdb", lmdb);
 
-    const run_bench = b.addRunArtifact(bench);
-    b.step("bench", "Run LMDB benchmarks").dependOn(&run_bench.step);
+    const bench_runner = b.addRunArtifact(bench);
+    b.step("bench", "Run LMDB benchmarks").dependOn(&bench_runner.step);
 }
