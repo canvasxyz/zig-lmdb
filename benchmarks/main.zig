@@ -22,17 +22,25 @@ pub fn main() !void {
     try Context.exec("1m entries", 1_000_000, log, .{ .map_size = 2 * 1024 * 1024 * 1024 });
 }
 
+var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+
+fn open(dir: std.fs.Dir, options: lmdb.Environment.Options) !lmdb.Environment {
+    const path = try dir.realpath(".", &path_buffer);
+    path_buffer[path.len] = 0;
+    return try lmdb.Environment.init(path_buffer[0..path.len :0], options);
+}
+
 const Context = struct {
     env: lmdb.Environment,
     name: []const u8,
     size: u32,
     log: std.fs.File.Writer,
 
-    pub fn exec(name: []const u8, size: u32, log: std.fs.File.Writer, options: lmdb.Environment.EnvironmentOptions) !void {
+    pub fn exec(name: []const u8, size: u32, log: std.fs.File.Writer, options: lmdb.Environment.Options) !void {
         var tmp = std.testing.tmpDir(.{});
         defer tmp.cleanup();
 
-        const env = try lmdb.Environment.initDir(tmp.dir, options);
+        const env = try open(tmp.dir, options);
         defer env.deinit();
 
         const ctx = Context{ .env = env, .name = name, .size = size, .log = log };
@@ -49,10 +57,8 @@ const Context = struct {
     }
 
     fn initialize(ctx: Context) !void {
-        const txn = try lmdb.Transaction.init(ctx.env, .{ .mode = .ReadWrite });
+        const txn = try ctx.env.transaction(.{ .mode = .ReadWrite });
         errdefer txn.abort();
-
-        const dbi = try txn.database(null, .{});
 
         var key: [4]u8 = undefined;
         var value: [value_size]u8 = undefined;
@@ -61,7 +67,7 @@ const Context = struct {
         while (i < ctx.size) : (i += 1) {
             std.mem.writeInt(u32, &key, i, .big);
             std.crypto.hash.Blake3.hash(&key, &value, .{});
-            try txn.set(dbi, &key, &value);
+            try txn.set(&key, &value);
         }
 
         try txn.commit();
@@ -89,17 +95,15 @@ const Context = struct {
             timer.reset();
             operations += batch_size;
 
-            const txn = try lmdb.Transaction.init(ctx.env, .{ .mode = .ReadOnly });
+            const txn = try ctx.env.transaction(.{ .mode = .ReadOnly });
             defer txn.abort();
-
-            const dbi = try txn.database(null, .{});
 
             var key: [4]u8 = undefined;
 
             var n: u32 = 0;
             while (n < batch_size) : (n += 1) {
                 std.mem.writeInt(u32, &key, random.uintLessThan(u32, ctx.size), .big);
-                const value = try txn.get(dbi, &key);
+                const value = try txn.get(&key);
                 std.debug.assert(value.?.len == value_size);
             }
 
@@ -117,10 +121,8 @@ const Context = struct {
         for (&runtimes, 0..) |*t, i| {
             timer.reset();
 
-            const txn = try lmdb.Transaction.init(ctx.env, .{ .mode = .ReadWrite });
+            const txn = try ctx.env.transaction(.{ .mode = .ReadWrite });
             errdefer txn.abort();
-
-            const dbi = try txn.database(null, .{});
 
             var key: [4]u8 = undefined;
             var seed: [12]u8 = undefined;
@@ -134,7 +136,7 @@ const Context = struct {
                 std.mem.writeInt(u32, &key, random.uintLessThan(u32, ctx.size), .big);
                 std.mem.writeInt(u32, seed[8..], n, .big);
                 std.crypto.hash.Blake3.hash(&seed, &value, .{});
-                try txn.set(dbi, &key, &value);
+                try txn.set(&key, &value);
             }
 
             try txn.commit();
@@ -156,12 +158,10 @@ const Context = struct {
             timer.reset();
             operations += ctx.size;
 
-            const txn = try lmdb.Transaction.init(ctx.env, .{ .mode = .ReadOnly });
+            const txn = try ctx.env.transaction(.{ .mode = .ReadOnly });
             defer txn.abort();
 
-            const dbi = try txn.database(null, .{});
-
-            const cursor = try lmdb.Cursor.init(txn, dbi);
+            const cursor = try txn.cursor();
             defer cursor.deinit();
 
             if (try cursor.goToFirst()) |first_key| {
