@@ -1,6 +1,6 @@
 .{
-    .paths = .{ "src", "build.zig", "build.zig.zon" },
     .name = "zig-lmdb",
+    .paths = .{ "src", "build.zig", "build.zig.zon" },
     .version = "0.1.0",
     .dependencies = .{
         .lmdb = .{

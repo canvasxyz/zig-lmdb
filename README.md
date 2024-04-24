@@ -2,10 +2,11 @@
 
 Zig bindings for LMDB.
 
-Built and tested with Zig version `0.12.0`.
+Built and tested with Zig version `0.12`.
 
 ## Table of Contents
 
+- [Installation](#installation)
 - [Usage](#usage)
 - [API](#api)
   - [`Environment`](#environment)
@@ -14,6 +15,21 @@ Built and tested with Zig version `0.12.0`.
   - [`Cursor`](#cursor)
   - [`Stat`](#stat)
 - [Benchmarks](#benchmarks)
+
+## Installation
+
+Add zig-lmdb to `build.zig.zon`
+
+```zig
+.{
+    .dependencies = .{
+        .lmdb = .{
+            .url = "https://github.com/canvasxyz/zig-lmdb/archive/refs/tags/v0.1.0.tar.gz",
+            .hash = "1220dba94d1d824664e244618a7865f43c7863e1e4599126d18adcbd8af8aa7323ab",
+        },
+    },
+}
+```
 
 ## Usage
 
