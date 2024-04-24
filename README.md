@@ -25,7 +25,7 @@ Add zig-lmdb to `build.zig.zon`
     .dependencies = .{
         .lmdb = .{
             .url = "https://github.com/canvasxyz/zig-lmdb/archive/refs/tags/v0.1.0.tar.gz",
-            .hash = "1220dba94d1d824664e244618a7865f43c7863e1e4599126d18adcbd8af8aa7323ab",
+            .hash = "1220d5ca02660a791ea022d60a032ae56b629002d3930117d8047ecf615f012044f7",
         },
     },
 }
