@@ -101,16 +101,16 @@ pub fn throw(rc: c_int) Error!void {
         // The specified DBI handle was closed/changed unexpectedly
         c.MDB_BAD_DBI => Error.MDB_BAD_DBI,
 
-        @intFromEnum(std.os.E.INVAL) => Error.INVAL,
-        @intFromEnum(std.os.E.ACCES) => Error.ACCES,
-        @intFromEnum(std.os.E.NOMEM) => Error.NOMEM,
-        @intFromEnum(std.os.E.NOENT) => Error.NOENT,
-        @intFromEnum(std.os.E.AGAIN) => Error.AGAIN,
-        @intFromEnum(std.os.E.NOSPC) => Error.NOSPC,
-        @intFromEnum(std.os.E.BUSY) => Error.BUSY,
-        @intFromEnum(std.os.E.INTR) => Error.INTR,
-        @intFromEnum(std.os.E.PIPE) => Error.PIPE,
-        @intFromEnum(std.os.E.IO) => Error.IO,
+        @intFromEnum(std.posix.E.INVAL) => Error.INVAL,
+        @intFromEnum(std.posix.E.ACCES) => Error.ACCES,
+        @intFromEnum(std.posix.E.NOMEM) => Error.NOMEM,
+        @intFromEnum(std.posix.E.NOENT) => Error.NOENT,
+        @intFromEnum(std.posix.E.AGAIN) => Error.AGAIN,
+        @intFromEnum(std.posix.E.NOSPC) => Error.NOSPC,
+        @intFromEnum(std.posix.E.BUSY) => Error.BUSY,
+        @intFromEnum(std.posix.E.INTR) => Error.INTR,
+        @intFromEnum(std.posix.E.PIPE) => Error.PIPE,
+        @intFromEnum(std.posix.E.IO) => Error.IO,
 
         else => Error.MDB_UNKNOWN_ERROR,
     };
