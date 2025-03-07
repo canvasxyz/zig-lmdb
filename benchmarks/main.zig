@@ -6,7 +6,7 @@ const lmdb = @import("lmdb");
 
 const value_size = 8;
 
-var prng = std.rand.DefaultPrng.init(0x0000000000000000);
+var prng = std.Random.DefaultPrng.init(0x0000000000000000);
 var random = prng.random();
 
 const ms: f64 = 1_000_000.0;
@@ -22,7 +22,7 @@ pub fn main() !void {
     try Context.exec("1m entries", 1_000_000, log, .{ .map_size = 2 * 1024 * 1024 * 1024 });
 }
 
-var path_buffer: [std.fs.MAX_PATH_BYTES]u8 = undefined;
+var path_buffer: [std.fs.max_name_bytes]u8 = undefined;
 
 fn open(dir: std.fs.Dir, options: lmdb.Environment.Options) !lmdb.Environment {
     const path = try dir.realpath(".", &path_buffer);
