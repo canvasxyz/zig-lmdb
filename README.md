@@ -2,7 +2,7 @@
 
 Zig bindings for LMDB.
 
-Built and tested with Zig version `0.13.0`.
+Built and tested with Zig version `0.14.0`.
 
 ## Table of Contents
 
@@ -24,8 +24,8 @@ Add zig-lmdb to `build.zig.zon`
 .{
     .dependencies = .{
         .lmdb = .{
-            .url = "https://github.com/canvasxyz/zig-lmdb/archive/refs/tags/v0.1.0.tar.gz",
-            .hash = "1220d5ca02660a791ea022d60a032ae56b629002d3930117d8047ecf615f012044f7",
+            .url = "https://github.com/canvasxyz/zig-lmdb/archive/refs/tags/v0.2.0.tar.gz",
+            // .hash = "...",
         },
     },
 }
@@ -205,34 +205,34 @@ zig build bench
 
 |                          | iterations | min (ms) | max (ms) | avg (ms) |    std |  ops / s |
 | :----------------------- | ---------: | -------: | -------: | -------: | -----: | -------: |
-| get random 1 entry       |        100 |   0.0003 |   0.0146 |   0.0006 | 0.0014 |  1623746 |
-| get random 100 entries   |        100 |   0.0305 |   0.0364 |   0.0314 | 0.0007 |  3181302 |
-| iterate over all entries |        100 |   0.0311 |   0.0340 |   0.0312 | 0.0003 | 32000020 |
-| set random 1 entry       |        100 |   0.0931 |   0.3103 |   0.1256 | 0.0332 |     7959 |
-| set random 100 entries   |        100 |   0.1151 |   0.2963 |   0.1441 | 0.0279 |   694063 |
-| set random 1k entries    |         10 |   0.3931 |   0.4568 |   0.4322 | 0.0196 |  2313543 |
-| set random 50k entries   |         10 |  12.2390 |  15.7186 |  12.8449 | 1.0957 |  3892584 |
+| get random 1 entry       |        100 |   0.0001 |   0.0069 |   0.0002 | 0.0007 |  4082799 |
+| get random 100 entries   |        100 |   0.0089 |   0.0204 |   0.0118 | 0.0045 |  8473664 |
+| iterate over all entries |        100 |   0.0175 |   0.0290 |   0.0221 | 0.0023 | 45156084 |
+| set random 1 entry       |        100 |   0.0498 |   0.1814 |   0.0582 | 0.0159 |    17169 |
+| set random 100 entries   |        100 |   0.0750 |   0.1275 |   0.0841 | 0.0068 |  1189692 |
+| set random 1k entries    |         10 |   0.2495 |   0.2606 |   0.2557 | 0.0035 |  3911596 |
+| set random 50k entries   |         10 |   8.8281 |  12.4414 |   9.8183 | 1.1449 |  5092551 |
 
 ### 50k entries
 
 |                          | iterations | min (ms) | max (ms) | avg (ms) |    std |  ops / s |
 | :----------------------- | ---------: | -------: | -------: | -------: | -----: | -------: |
-| get random 1 entry       |        100 |   0.0002 |   0.0129 |   0.0011 | 0.0013 |   934868 |
-| get random 100 entries   |        100 |   0.0250 |   0.0531 |   0.0280 | 0.0044 |  3566696 |
-| iterate over all entries |        100 |   0.6055 |   0.6735 |   0.6173 | 0.0145 | 81001777 |
-| set random 1 entry       |        100 |   0.0551 |   0.6420 |   0.0742 | 0.0610 |    13476 |
-| set random 100 entries   |        100 |   0.3705 |   3.3370 |   0.4798 | 0.2896 |   208400 |
-| set random 1k entries    |         10 |   0.8556 |   1.0658 |   0.9524 | 0.0709 |  1050002 |
-| set random 50k entries   |         10 |  19.3440 |  21.0593 |  19.7118 | 0.5614 |  2536546 |
+| get random 1 entry       |        100 |   0.0002 |   0.0072 |   0.0011 | 0.0008 |   914620 |
+| get random 100 entries   |        100 |   0.0194 |   0.0562 |   0.0232 | 0.0058 |  4312356 |
+| iterate over all entries |        100 |   0.4243 |   0.7743 |   0.5451 | 0.0315 | 91727484 |
+| set random 1 entry       |        100 |   0.0446 |   0.3028 |   0.0577 | 0.0263 |    17342 |
+| set random 100 entries   |        100 |   0.3673 |   0.6541 |   0.4756 | 0.0776 |   210273 |
+| set random 1k entries    |         10 |   0.7499 |   0.9015 |   0.8379 | 0.0474 |  1193519 |
+| set random 50k entries   |         10 |  14.2130 |  14.7817 |  14.4931 | 0.1797 |  3449915 |
 
 ### 1m entries
 
 |                          | iterations | min (ms) | max (ms) | avg (ms) |    std |  ops / s |
 | :----------------------- | ---------: | -------: | -------: | -------: | -----: | -------: |
-| get random 1 entry       |        100 |   0.0004 |   0.0211 |   0.0022 | 0.0022 |   462423 |
-| get random 100 entries   |        100 |   0.0517 |   0.1809 |   0.0715 | 0.0251 |  1398510 |
-| iterate over all entries |        100 |  12.2841 |  14.0215 |  12.4831 | 0.2681 | 80108379 |
-| set random 1 entry       |        100 |   0.0645 |   1.4024 |   0.1043 | 0.1328 |     9587 |
-| set random 100 entries   |        100 |   0.6773 |   7.3026 |   2.3796 | 0.6177 |    42025 |
-| set random 1k entries    |         10 |   7.3463 |  15.9778 |  13.2091 | 2.9459 |    75705 |
-| set random 50k entries   |         10 |  47.9222 |  60.7651 |  52.2927 | 3.4127 |   956156 |
+| get random 1 entry       |        100 |   0.0004 |   0.0270 |   0.0025 | 0.0029 |   397152 |
+| get random 100 entries   |        100 |   0.0440 |   0.1758 |   0.0668 | 0.0198 |  1496224 |
+| iterate over all entries |        100 |   9.9925 |  13.8858 |  10.6677 | 0.5131 | 93741223 |
+| set random 1 entry       |        100 |   0.0538 |   0.3763 |   0.0721 | 0.0374 |    13874 |
+| set random 100 entries   |        100 |   0.6510 |   2.2153 |   1.7443 | 0.1971 |    57330 |
+| set random 1k entries    |         10 |   6.9965 |  11.5011 |  10.2719 | 1.6529 |    97353 |
+| set random 50k entries   |         10 |  39.9164 |  42.6653 |  41.1931 | 1.0043 |  1213796 |
