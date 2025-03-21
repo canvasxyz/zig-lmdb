@@ -47,7 +47,7 @@ pub fn init(path: [*:0]const u8, options: Options) !Environment {
 
     var flags: c_uint = 0;
     if (options.read_only) flags |= c.MDB_RDONLY;
-    if (options.write_map) flags |= c.MDB_RDONLY;
+    if (options.write_map) flags |= c.MDB_WRITEMAP;
     if (options.no_lock) flags |= c.MDB_NOLOCK;
     if (options.no_tls) flags |= c.MDB_NOTLS;
 
