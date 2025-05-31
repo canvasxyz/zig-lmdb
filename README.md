@@ -18,17 +18,8 @@ Built and tested with Zig version `0.14.1`.
 
 ## Installation
 
-Add zig-lmdb to `build.zig.zon`
-
-```zig
-.{
-    .dependencies = .{
-        .lmdb = .{
-            .url = "https://github.com/canvasxyz/zig-lmdb/archive/refs/tags/v0.2.0.tar.gz",
-            // .hash = "...",
-        },
-    },
-}
+```
+zig fetch --save=lmdb https://github.com/canvasxyz/zig-lmdb/archive/refs/tags/v0.2.1.tar.gz
 ```
 
 ## Usage
