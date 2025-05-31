@@ -2,7 +2,7 @@
 
 Zig bindings for LMDB.
 
-Built and tested with Zig version `0.14.0`.
+Built and tested with Zig version `0.14.1`.
 
 ## Table of Contents
 
