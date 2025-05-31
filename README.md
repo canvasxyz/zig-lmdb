@@ -19,7 +19,8 @@ Built and tested with Zig version `0.14.1`.
 ## Installation
 
 ```
-zig fetch --save=lmdb https://github.com/canvasxyz/zig-lmdb/archive/refs/tags/v0.2.1.tar.gz
+zig fetch --save=lmdb \
+  https://github.com/canvasxyz/zig-lmdb/archive/refs/tags/v0.2.1.tar.gz
 ```
 
 ## Usage
