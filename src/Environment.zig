@@ -42,7 +42,8 @@ pub fn init(path: [*:0]const u8, options: Options) !Environment {
     errdefer c.mdb_env_close(env.ptr);
 
     try throw(c.mdb_env_set_mapsize(env.ptr, options.map_size));
-    try throw(c.mdb_env_set_maxdbs(env.ptr, options.max_dbs));
+    if (options.max_dbs > 0)
+        try throw(c.mdb_env_set_maxdbs(env.ptr, options.max_dbs));
     try throw(c.mdb_env_set_maxreaders(env.ptr, options.max_readers));
 
     var flags: c_uint = 0;
